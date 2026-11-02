@@ -75,6 +75,32 @@ create table if not exists public.budgets (
  created_at timestamptz not null default now()
 );
 
+alter table public.investments
+  add column if not exists metadata jsonb not null default '{}'::jsonb;
+
+create table if not exists public.exchange_rates (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null references auth.users(id) on delete cascade,
+  base_currency char(3) not null check (base_currency in ('USD','EUR','SAR','AED','YER')),
+  quote_currency char(3) not null check (quote_currency in ('USD','EUR','SAR','AED','YER')),
+  rate numeric(24,10) not null check (rate > 0),
+  rate_date date not null,
+  source text not null default 'Frankfurter',
+  created_at timestamptz not null default now(),
+  unique (user_id, base_currency, quote_currency, rate_date),
+  check (base_currency <> quote_currency)
+);
+create index if not exists exchange_rates_user_date_idx
+  on public.exchange_rates(user_id, rate_date desc);
+alter table public.exchange_rates enable row level security;
+drop policy if exists exchange_rates_own on public.exchange_rates;
+create policy exchange_rates_own on public.exchange_rates for all to authenticated
+  using ((select auth.uid()) = user_id)
+  with check ((select auth.uid()) = user_id);
+grant select,insert,update,delete on public.exchange_rates to authenticated;
+revoke all on public.exchange_rates from anon;
+
+
 alter table public.transactions
   add column if not exists account_id uuid references public.accounts(id) on delete set null,
   add column if not exists source_account_id uuid references public.accounts(id) on delete set null,
