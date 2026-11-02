@@ -123,14 +123,19 @@ async def market_fx(base: str = "USD", quotes: str = "EUR,SAR,AED,YER"):
 @app.get("/api/health")
 async def health():
  ollama_reachable=False
+ model_available=False
  if OLLAMA_BASE_URL and OLLAMA_API_KEY:
   try:
    async with httpx.AsyncClient(timeout=httpx.Timeout(4,connect=2)) as client:
     response=await client.get(OLLAMA_BASE_URL+"/api/tags",headers={"Authorization":"Bearer "+OLLAMA_API_KEY})
     ollama_reachable=response.status_code==200
-  except httpx.HTTPError:
+    if ollama_reachable:
+     models=(response.json().get("models") or [])
+     model_available=any(str(m.get("name","")).split(":")[0]==OLLAMA_MODEL.split(":")[0] for m in models)
+  except (httpx.HTTPError, ValueError, TypeError):
    ollama_reachable=False
- return {"ok":True,"supabase_configured":bool(SUPABASE_URL and SUPABASE_PUBLISHABLE_KEY),"ollama_configured":bool(OLLAMA_BASE_URL and OLLAMA_API_KEY),"ollama_reachable":ollama_reachable,"model":OLLAMA_MODEL}
+   model_available=False
+ return {"ok":True,"supabase_configured":bool(SUPABASE_URL and SUPABASE_PUBLISHABLE_KEY),"ollama_configured":bool(OLLAMA_BASE_URL and OLLAMA_API_KEY),"ollama_reachable":ollama_reachable,"model_available":model_available,"model":OLLAMA_MODEL}
 
 async def verify_user(authorization:str|None):
  if not authorization or not authorization.lower().startswith("bearer "):
@@ -155,8 +160,19 @@ async def chat(req:ChatRequest,authorization:str|None=Header(default=None)):
  for t in txs[-60:]:
   if not isinstance(t,dict): continue
   safe.append({k:t.get(k) for k in ("type","amount","currency","category","date")})
- safe_context={"currency":str(context.get("currency","YER"))[:3],"income":context.get("income",0),"expenses":context.get("expenses",0),"net":context.get("net",0),"transactions":safe}
- system=("أنت WALLET OS، مساعد تحليل مالي. استخدم فقط الأرقام المقدمة ولا تخترع بيانات. وضح العملة والفترة وحدود البيانات. التحويلات ليست دخلا ولا مصروفا. لا تنفذ معاملات أو تدّع تنفيذها. قدم توصيات عملية غير مضمونة النتائج. أجب باللغة العربية." if req.language=="ar" else "You are WALLET OS, a careful personal finance analysis assistant. Use only supplied facts, state currency and limitations, never invent data or claim to execute transactions.")
+ safe_investments=[]
+ for item in (context.get("investments",[]) if isinstance(context.get("investments",[]),list) else [])[:30]:
+  if not isinstance(item,dict): continue
+  meta=item.get("metadata") if isinstance(item.get("metadata"),dict) else {}
+  safe_investments.append({"asset_type":str(item.get("asset_type",""))[:30],"name":str(item.get("name",""))[:100],"invested_amount":item.get("invested_amount",0),"current_value":item.get("current_value",0),"currency":str(item.get("currency",""))[:3],"gold_weight_grams":meta.get("weight_grams"),"gold_karat":meta.get("karat")})
+ fx=context.get("fx_rates") if isinstance(context.get("fx_rates"),dict) else {}
+ safe_fx={str(k)[:3]:v for k,v in fx.items() if k in ("USD","EUR","SAR","AED","YER") and isinstance(v,(int,float))}
+ gold=context.get("gold_market") if isinstance(context.get("gold_market"),dict) else None
+ safe_gold=None
+ if gold:
+  safe_gold={"price_usd_troy_ounce":gold.get("price_usd_troy_ounce"),"updated_at":str(gold.get("updated_at",""))[:40],"source":str(gold.get("source",""))[:60]}
+ safe_context={"currency":str(context.get("currency","YER"))[:3],"income":context.get("income",0),"expenses":context.get("expenses",0),"net":context.get("net",0),"fx_rates_usd_base":safe_fx,"gold_market":safe_gold,"investments":safe_investments,"transactions":safe}
+ system=("أنت WALLET OS، مساعد تحليل مالي. استخدم فقط الأرقام المقدمة ولا تخترع بيانات. وضح العملة وتاريخ أسعار الصرف ومصدرها، وميّز بين أسعار الصرف المرجعية اليومية وسعر السوق النقدي. سعر الذهب الفوري مرجعي بالدولار للأونصة الترويسية، والسعر المحسوب للغرام لا يشمل المصنعية أو الضريبة أو فرق البيع والشراء. لا تستخدم سعر الذهب إذا كان وقت تحديثه غير واضح أو قديمًا. التحويلات ليست دخلا ولا مصروفا. لا تنفذ معاملات أو تدّع تنفيذها. قدم توصيات عملية غير مضمونة النتائج. أجب باللغة العربية." if req.language=="ar" else "You are WALLET OS, a careful personal finance analysis assistant. Use only supplied facts, state currency, FX dates and sources, distinguish daily reference FX from local cash-market rates, identify gold spot as an indicative quote excluding dealer premiums and taxes, never invent data or claim to execute transactions.")
  try:
   async with httpx.AsyncClient(timeout=httpx.Timeout(180,connect=10)) as c:
    r=await c.post(OLLAMA_BASE_URL+"/api/chat",headers={"Authorization":"Bearer "+OLLAMA_API_KEY,"Content-Type":"application/json"},json={"model":OLLAMA_MODEL,"stream":False,"messages":[{"role":"system","content":system+"\nFinancial data (sanitized): "+__import__("json").dumps(safe_context,ensure_ascii=False)},{"role":"user","content":req.message}]})
