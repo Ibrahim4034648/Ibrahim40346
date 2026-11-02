@@ -86,7 +86,7 @@ const $=s=>document.querySelector(s);
 const root=$("#root");
 let supa=null,user=null,active="dashboard",currency="YER",transactions=[],accounts=[],goals=[],liabilities=[],investments=[],budgets=[],charts={},fxRates={USD:{USD:1}},fxRateDate=null,fxRateSource=null,goldQuote=null,goldLoading=false,goldError=null,marketQuotes={},investmentQuoteLoading=false,investmentQuoteLoadedAt=0,investmentQuoteError=null;
 const currencyNames={YER:"ريال يمني",SAR:"ريال سعودي",USD:"دولار أمريكي",AED:"درهم إماراتي"};
-const pageTitles={dashboard:"الرئيسية",transactions:"كل العمليات",income:"الدخل",expenses:"المصروفات",accounts:"الحسابات",savings:"أهداف الادخار",debts:"الالتزامات",investments:"الاستثمارات",budgets:"الميزانيات",reports:"التقارير",assistant:"المساعد الذكي",settings:"الإعدادات"};
+const pageTitles={dashboard:"الرئيسية",transactions:"كل العمليات",income:"الدخل",expenses:"المصروفات",accounts:"الحسابات",savings:"الادخار",debts:"الالتزامات",investments:"الاستثمارات",budgets:"الميزانيات",reports:"التقارير",assistant:"المساعد الذكي",settings:"الإعدادات"};
 const nav=[["dashboard","▦","الرئيسية"],["transactions","⇄","كل العمليات"],["income","↗","الدخل"],["expenses","↘","المصروفات"],["accounts","▤","الحسابات"],["savings","◎","الادخار"],["debts","◈","الالتزامات"],["investments","⌁","الاستثمارات"],["budgets","◫","الميزانيات"],["reports","▥","التقارير"],["assistant","✳","المساعد الذكي"],["settings","⚙","الإعدادات"]];
 const modules={
 accounts:{table:"accounts",title:"الحسابات",desc:"أضف حساباتك النقدية والبنكية والمحافظ، وتابع أرصدتها من العمليات المرتبطة بها.",icon:"▤",fields:[["name","اسم الحساب","text"],["account_type","نوع الحساب","select",["cash:نقدي","bank:بنكي","wallet:محفظة","savings:ادخار","other:آخر"]],["currency","العملة","currency"],["opening_balance","الرصيد الافتتاحي","number"]]},
@@ -406,7 +406,7 @@ function renderPage(){
   const today=new Date().toISOString().slice(0,10);
   const overdue=items.filter(x=>x.target_date&&x.target_date<today&&Number(x.current_amount)<Number(x.target_amount)).length;
   const excluded=items.length-comparable.length;
-  const statusTone=remaining<=0&&items.length?"profit":overdue?"loss":"neutral";
+  const statusTone=totalTarget>0&&remaining<=0?"profit":overdue?"loss":"neutral";
   const avgRows=comparable.filter(x=>x.target>0);
   const average=avgRows.length?avgRows.reduce((s,x)=>s+Math.min(100,x.saved/x.target*100),0)/avgRows.length:0;
   html=pageHeader("تابع نمو مدخراتك وأهدافك المالية من لوحة واحدة، وراقب ما جمعته وما تبقى للوصول إلى كل هدف.",'<button class="btn primary" id="moduleAdd">＋ إضافة هدف ادخار</button>');
