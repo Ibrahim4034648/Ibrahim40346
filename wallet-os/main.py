@@ -36,6 +36,90 @@ async def config():
  import json
  return Response("window.WALLET_CONFIG="+json.dumps(payload)+";",media_type="application/javascript",headers={"Cache-Control":"no-store"})
 
+
+# Public market data is cached briefly by each serverless instance. No provider key is exposed.
+MARKET_CACHE: dict[str, tuple[float, dict[str, Any]]] = {}
+GOLD_PRICE_URL = "https://api.gold-api.com/price/XAU"
+FRANKFURTER_URL = "https://api.frankfurter.dev/v2/rates"
+
+async def cached_market_json(key: str, url: str, ttl: int = 30) -> dict[str, Any]:
+ cached = MARKET_CACHE.get(key)
+ now = time.time()
+ if cached and now - cached[0] < ttl:
+  return cached[1]
+ async with httpx.AsyncClient(timeout=httpx.Timeout(12, connect=5), follow_redirects=True) as client:
+  response = await client.get(url, headers={"Accept":"application/json","User-Agent":"WALLET-OS/1.0 market data"})
+  response.raise_for_status()
+  payload = response.json()
+ if not isinstance(payload, (dict, list)):
+  raise HTTPException(502, "أعاد مزود الأسعار استجابة غير متوقعة.")
+ if isinstance(payload, dict):
+  MARKET_CACHE[key] = (now, payload)
+  return payload
+ return {"rows": payload}
+
+@app.get("/api/market/gold")
+async def market_gold():
+ try:
+  data = await cached_market_json("gold-xau", GOLD_PRICE_URL, 30)
+  price = float(data.get("price", 0))
+  updated_at = data.get("updatedAt")
+  if price <= 0 or not updated_at:
+   raise HTTPException(502, "بيانات الذهب لا تحتوي سعرًا أو وقت تحديث صالحًا.")
+  return {
+   "symbol": data.get("symbol", "XAU"),
+   "name": data.get("name", "Gold"),
+   "price_usd_troy_ounce": price,
+   "currency": data.get("currency", "USD"),
+   "updated_at": updated_at,
+   "source": "Gold API",
+   "source_url": GOLD_PRICE_URL,
+   "troy_ounce_grams": 31.1034768,
+  }
+ except HTTPException:
+  raise
+ except (httpx.HTTPError, ValueError, TypeError):
+  raise HTTPException(503, "تعذر جلب سعر الذهب العالمي حاليًا. حاول لاحقًا.")
+
+@app.get("/api/market/fx")
+async def market_fx(base: str = "USD", quotes: str = "EUR,SAR,AED,YER"):
+ base = base.upper().strip()
+ if base not in {"USD","EUR","SAR","AED","YER"}:
+  raise HTTPException(400, "عملة الأساس غير مدعومة.")
+ allowed = {"USD","EUR","SAR","AED","YER"}
+ quote_list = sorted({q.strip().upper() for q in quotes.split(",") if q.strip().upper() in allowed and q.strip().upper() != base})
+ if not quote_list:
+  return {"base": base, "rates": {}, "date": None, "source": "Frankfurter"}
+ url = FRANKFURTER_URL + "?base=" + base + "&quotes=" + ",".join(quote_list)
+ key = "fx:" + base + ":" + ",".join(quote_list)
+ try:
+  data = await cached_market_json(key, url, 900)
+  rows = data.get("rows") if isinstance(data.get("rows"), list) else data
+  rates: dict[str, float] = {}
+  rate_date = data.get("date") if isinstance(data, dict) else None
+  if isinstance(rows, list):
+   for row in rows:
+    if not isinstance(row, dict):
+     continue
+    quote = str(row.get("quote", row.get("currency", ""))).upper()
+    value = row.get("rate")
+    if quote in quote_list and value is not None:
+     rates[quote] = float(value)
+     rate_date = max(str(rate_date or ""), str(row.get("date") or ""))
+  elif isinstance(rows, dict):
+   candidate = rows.get("rates", rows)
+   if isinstance(candidate, dict):
+    for quote, value in candidate.items():
+     if quote.upper() in quote_list and isinstance(value, (int,float)):
+      rates[quote.upper()] = float(value)
+  if not rates:
+   raise HTTPException(503, "لم يُرجع مزود أسعار الصرف أسعارًا للعملات المطلوبة.")
+  return {"base": base, "rates": rates, "date": rate_date, "source": "Frankfurter", "source_url": "https://frankfurter.dev/"}
+ except HTTPException:
+  raise
+ except (httpx.HTTPError, ValueError, TypeError):
+  raise HTTPException(503, "تعذر جلب أسعار الصرف المرجعية حاليًا.")
+
 @app.get("/api/health")
 async def health():
  ollama_reachable=False
