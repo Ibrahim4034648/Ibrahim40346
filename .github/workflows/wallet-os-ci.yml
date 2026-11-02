@@ -9,12 +9,28 @@ on:
       - "wallet-os/**"
       - ".github/workflows/wallet-os-ci.yml"
 jobs:
-  python-check:
+  project-checks:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
       - run: python -m pip install -r wallet-os/requirements.txt
       - run: python -m compileall -q wallet-os/main.py
+      - name: Check embedded browser JavaScript syntax
+        run: |
+          python - <<'PY'
+          import pathlib, re
+          html = pathlib.Path("wallet-os/index.html").read_text(encoding="utf-8")
+          scripts = [s for s in re.findall(r"<script\\b[^>]*>(.*?)</script>", html, re.S) if s.strip()]
+          if not scripts:
+              raise SystemExit("No inline application script found")
+          pathlib.Path("/tmp/wallet-os-app.js").write_text(scripts[-1], encoding="utf-8")
+          PY
+          node --check /tmp/wallet-os-app.js
+      - name: Validate Ollama Docker Compose
+        run: docker compose --env-file wallet-os/ollama/.env.example -f wallet-os/ollama/docker-compose.yml config --quiet
