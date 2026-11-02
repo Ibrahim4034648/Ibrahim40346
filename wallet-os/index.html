@@ -85,7 +85,7 @@ body.light .btn.primary{color:#17140e}
 "use strict";
 const $=s=>document.querySelector(s);
 const root=$("#root");
-let supa=null,user=null,active="dashboard",currency="YER",transactions=[],accounts=[],goals=[],liabilities=[],financings=[],financingPayments=[],investments=[],budgets=[],charts={}fxRates={USD:{USD:1}},fxRateDate=null,fxRateSource=null,goldQuote=null,goldLoading=false,goldError=null,marketQuotes={},investmentQuoteLoading=false,investmentQuoteLoadedAt=0,investmentQuoteError=null;
+let supa=null,user=null,active="dashboard",currency="YER",transactions=[],accounts=[],goals=[],liabilities=[],financings=[],financingPayments=[],investments=[],budgets=[],charts={},fxRates={USD:{USD:1}},fxRateDate=null,fxRateSource=null,goldQuote=null,goldLoading=false,goldError=null,marketQuotes={},investmentQuoteLoading=false,investmentQuoteLoadedAt=0,investmentQuoteError=null;
 const currencyNames={YER:"ريال يمني",SAR:"ريال سعودي",USD:"دولار أمريكي",AED:"درهم إماراتي"};
 const pageTitles={dashboard:"الرئيسية",transactions:"كل العمليات",income:"الدخل",expenses:"المصروفات",accounts:"الحسابات",savings:"الادخار",financings:"التمويلات والأقساط",investments:"الاستثمارات",budgets:"الميزانيات",reports:"التقارير",assistant:"المساعد الذكي",settings:"الإعدادات"};
 const nav=[["dashboard","▦","الرئيسية"],["transactions","⇄","كل العمليات"],["income","↗","الدخل"],["expenses","↘","المصروفات"],["accounts","▤","الحسابات"],["savings","◎","الادخار"],["financings","◈","التمويلات والأقساط"],["investments","⌁","الاستثمارات"],["budgets","◫","الميزانيات"],["reports","▥","التقارير"],["assistant","✳","المساعد الذكي"],["settings","⚙","الإعدادات"]];
