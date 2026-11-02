@@ -1,0 +1,53 @@
+name: Ollama temporary GitHub runner test
+
+on:
+  push:
+    paths:
+      - ".github/workflows/ollama-smoke.yml"
+      - "wallet-os/ollama/**"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  ollama-smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - name: Start official Ollama container
+        run: |
+          docker run -d --name wallet-ollama -p 11434:11434 ollama/ollama
+          for i in {1..30}; do
+            if curl -fsS http://127.0.0.1:11434/api/tags >/dev/null; then
+              exit 0
+            fi
+            sleep 2
+          done
+          docker logs wallet-ollama
+          exit 1
+
+      - name: Download small Qwen model
+        run: docker exec wallet-ollama ollama pull qwen3.5:0.8b
+
+      - name: Run a real Arabic inference request
+        run: |
+          curl -fsS http://127.0.0.1:11434/api/chat \
+            -H "Content-Type: application/json" \
+            -d '{"model":"qwen3.5:0.8b","stream":false,"messages":[{"role":"user","content":"أجب بالعربية بكلمة واحدة: جاهز"}]}' \
+            > /tmp/ollama-response.json
+          python - <<'PY'
+          import json
+          data = json.load(open("/tmp/ollama-response.json", encoding="utf-8"))
+          answer = data.get("message", {}).get("content", "").strip()
+          if not answer:
+              raise SystemExit("Ollama returned an empty answer")
+          print("Ollama inference succeeded:", answer[:200])
+          PY
+
+      - name: Show downloaded model
+        run: docker exec wallet-ollama ollama list
+
+      - name: Stop temporary model server
+        if: always()
+        run: docker rm -f wallet-ollama || true
