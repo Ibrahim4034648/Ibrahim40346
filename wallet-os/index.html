@@ -82,7 +82,7 @@ body.light .btn.primary{color:#17140e}
 "use strict";
 const $=s=>document.querySelector(s);
 const root=$("#root");
-let supa=null,user=null,active="dashboard",currency="YER",transactions=[],accounts=[],goals=[],liabilities=[],investments=[],budgets=[],charts={},fxRates={USD:{USD:1}},fxRateDate=null,fxRateSource=null,goldQuote=null,goldLoading=false,goldError=null;
+let supa=null,user=null,active="dashboard",currency="YER",transactions=[],accounts=[],goals=[],liabilities=[],investments=[],budgets=[],charts={},fxRates={USD:{USD:1}},fxRateDate=null,fxRateSource=null,goldQuote=null,goldLoading=false,goldError=null,marketQuotes={},investmentQuoteLoading=false,investmentQuoteLoadedAt=0,investmentQuoteError=null;
 const currencyNames={YER:"ريال يمني",SAR:"ريال سعودي",USD:"دولار أمريكي",AED:"درهم إماراتي"};
 const pageTitles={dashboard:"الرئيسية",transactions:"كل العمليات",income:"الدخل",expenses:"المصروفات",accounts:"الحسابات",savings:"أهداف الادخار",debts:"الالتزامات",investments:"الاستثمارات",budgets:"الميزانيات",reports:"التقارير",assistant:"المساعد الذكي",settings:"الإعدادات"};
 const nav=[["dashboard","▦","الرئيسية"],["transactions","⇄","كل العمليات"],["income","↗","الدخل"],["expenses","↘","المصروفات"],["accounts","▤","الحسابات"],["savings","◎","الادخار"],["debts","◈","الالتزامات"],["investments","⌁","الاستثمارات"],["budgets","◫","الميزانيات"],["reports","▥","التقارير"],["assistant","✳","المساعد الذكي"],["settings","⚙","الإعدادات"]];
@@ -90,7 +90,7 @@ const modules={
 accounts:{table:"accounts",title:"الحسابات",desc:"أضف حساباتك النقدية والبنكية والمحافظ، وتابع أرصدتها من العمليات المرتبطة بها.",icon:"▤",fields:[["name","اسم الحساب","text"],["account_type","نوع الحساب","select",["cash:نقدي","bank:بنكي","wallet:محفظة","savings:ادخار","other:آخر"]],["currency","العملة","currency"],["opening_balance","الرصيد الافتتاحي","number"]]},
 savings:{table:"savings_goals",title:"أهداف الادخار",desc:"حدد المبلغ المستهدف والرصيد الحالي والموعد الذي تطمح للوصول إليه.",icon:"◎",fields:[["name","اسم الهدف","text"],["target_amount","المبلغ المستهدف","number"],["current_amount","المبلغ المدخر حاليًا","number"],["currency","العملة","currency"],["target_date","التاريخ المستهدف","date"]]},
 debts:{table:"liabilities",title:"الالتزامات",desc:"سجّل القروض والالتزامات والمبلغ المتبقي وموعد الاستحقاق.",icon:"◈",fields:[["name","اسم الالتزام","text"],["original_amount","المبلغ الأصلي","number"],["remaining_amount","المبلغ المتبقي","number"],["currency","العملة","currency"],["due_date","تاريخ الاستحقاق","date"]]},
-investments:{table:"investments",title:"الاستثمارات",desc:"تابع استثماراتك والأصول، وراقب الذهب وفق السعر العالمي المرجعي.",icon:"⌁",fields:[["name","اسم الأصل","text"],["asset_type","نوع الأصل","select",["gold:ذهب","other:أصل آخر"]],["invested_amount","تكلفة الشراء الإجمالية","number"],["current_value","القيمة الحالية","number"],["currency","عملة الاستثمار","currency"]]},
+investments:{table:"investments",title:"الاستثمارات",desc:"تابع الذهب والفضة والنحاس والعملات الرقمية والأسهم السعودية والعالمية، مع مقارنة تكلفة الشراء بقيمتها السوقية.",icon:"⌁",fields:[["name","اسم الأصل أو الشركة","text"],["asset_type","فئة الاستثمار","select",["gold:ذهب","silver:فضة","copper:نحاس","crypto:عملة رقمية","saudi_stock:سهم سعودي","global_stock:سهم عالمي","other:أصل آخر"]],["invested_amount","إجمالي مبلغ الشراء","number"],["current_value","القيمة الحالية (للأصل الآخر فقط)","number"],["currency","عملة تسجيل الشراء","currency"]]},
 budgets:{table:"budgets",title:"الميزانيات",desc:"أنشئ حدود إنفاق أسبوعية أو شهرية أو سنوية حسب التصنيف.",icon:"◫",fields:[["name","اسم الميزانية","text"],["category","التصنيف","text"],["amount","حد الميزانية","number"],["currency","العملة","currency"],["period","الفترة","select",["weekly:أسبوعية","monthly:شهرية","yearly:سنوية"]]]}
 };
 function moduleItems(kind){return kind==="accounts"?accounts:kind==="savings"?goals:kind==="debts"?liabilities:kind==="investments"?investments:kind==="budgets"?budgets:[];}
@@ -138,6 +138,57 @@ function goldGramPrice(karat=24,target=currency){
  const usdPerGram=Number(goldQuote.price_usd_troy_ounce)/31.1034768*(Number(karat)/24);
  const converted=convertAmount(usdPerGram,"USD",target);
  return converted===null?null:converted;
+}
+const investmentTypeLabels={gold:"ذهب",silver:"فضة",copper:"نحاس",crypto:"عملة رقمية",saudi_stock:"سهم سعودي",global_stock:"سهم عالمي",other:"أصل آخر"};
+function investmentMarketKind(type){return ["gold","silver","copper"].includes(type)?"metal":type==="crypto"?"crypto":["saudi_stock","global_stock"].includes(type)?"stock":null;}
+function investmentSymbol(type,meta={}){return meta.symbol||({gold:"XAU",silver:"XAG",copper:"HG"}[type]||"");}
+function investmentQuoteKey(type,symbol){return investmentMarketKind(type)+":"+String(symbol||"").toUpperCase();}
+async function fetchInvestmentQuote(type,symbol){
+ const kind=investmentMarketKind(type);if(!kind)throw new Error("هذا النوع لا يملك مصدر تسعير آلي.");
+ const key=investmentQuoteKey(type,symbol);if(marketQuotes[key])return marketQuotes[key];
+ const url="/api/market/asset?kind="+encodeURIComponent(kind)+"&symbol="+encodeURIComponent(symbol);
+ const response=await fetch(url,{cache:"no-store"}),data=await response.json();
+ if(!response.ok)throw new Error(data.detail||"تعذر جلب سعر السوق.");
+ const price=Number(data.price_usd??data.price);
+ if(!(price>0)||!data.updated_at)throw new Error("بيانات السعر لا تحتوي قيمة ووقت تحديث صالحين.");
+ const quote={...data,price,currency:data.currency||"USD"};marketQuotes[key]=quote;return quote;
+}
+function investmentQuantity(item){const m=item.metadata||{};return Number(m.quantity??m.weight_grams)||0;}
+function investmentUnitLabel(type){return ({gold:"غرام",silver:"غرام",copper:"رطل",crypto:"عملة",saudi_stock:"سهم",global_stock:"سهم"}[type]||"وحدة");}
+function investmentQuoteValue(item,quote){
+ if(!quote)return Number(item.current_value)||0;
+ const meta=item.metadata||{},type=item.asset_type,quantity=investmentQuantity(item);
+ if(!(quantity>0))return Number(item.current_value)||0;
+ let amount=quantity*quote.price,from=quote.currency||"USD";
+ if(type==="gold"||type==="silver"){amount=quantity*quote.price/31.1034768;if(type==="gold")amount*=Number(meta.karat||24)/24;from="USD";}
+ const converted=convertAmount(amount,from,item.currency);
+ return converted===null?null:converted;
+}
+function investmentMarketValue(item){
+ const meta=item.metadata||{},symbol=investmentSymbol(item.asset_type,meta),kind=investmentMarketKind(item.asset_type);
+ return kind?investmentQuoteValue(item,marketQuotes[investmentQuoteKey(item.asset_type,symbol)]):Number(item.current_value)||0;
+}
+async function refreshInvestmentQuotes(){
+ if(investmentQuoteLoading)return;
+ investmentQuoteLoading=true;investmentQuoteError=null;
+ try{
+  const tasks=[...new Map(investments.filter(x=>investmentMarketKind(x.asset_type)).map(x=>{const symbol=investmentSymbol(x.asset_type,x.metadata||{});return [investmentQuoteKey(x.asset_type,symbol),{type:x.asset_type,symbol}];})).values()];
+  const results=await Promise.allSettled(tasks.map(x=>fetchInvestmentQuote(x.type,x.symbol)));
+  const failures=[];
+  for(let i=0;i<tasks.length;i++)if(results[i].status==="rejected")failures.push(tasks[i].symbol+": "+results[i].reason.message);
+  for(const item of investments){
+   const meta=item.metadata||{},symbol=investmentSymbol(item.asset_type,meta),kind=investmentMarketKind(item.asset_type);
+   if(!kind)continue;
+   const quote=marketQuotes[investmentQuoteKey(item.asset_type,symbol)];if(!quote)continue;
+   const value=investmentQuoteValue(item,quote);
+   if(value===null||!Number.isFinite(value)||value<0)continue;
+   const nextMeta={...meta,market_symbol:symbol,market_unit_price:quote.price,market_currency:quote.currency,market_source:quote.source,market_updated_at:quote.updated_at,market_unit:quote.unit,market_quote_name:quote.name};
+   const saved=await supa.from("investments").update({current_value:value,metadata:nextMeta}).eq("id",item.id).eq("user_id",user.id);
+   if(!saved.error){item.current_value=value;item.metadata=nextMeta;}
+  }
+  if(failures.length)investmentQuoteError=failures.join(" · ");
+ }catch(error){investmentQuoteError=error.message||"تعذر تحديث أسعار الأصول.";}
+ finally{investmentQuoteLoading=false;investmentQuoteLoadedAt=Date.now();if(active==="investments")renderPage();}
 }
 function goldHoldingValue(item){
  const meta=item.metadata||{},weight=Number(meta.weight_grams)||0,karat=Number(meta.karat)||24;
@@ -302,7 +353,7 @@ function samePeriod(date,period){
 }
 function renderPage(){
  destroyCharts();
- if(active==="investments"&&!goldQuote&&!goldLoading&&!goldError){goldLoading=true;fetchGoldQuote().then(()=>{goldLoading=false;if(active==="investments")renderPage();}).catch(e=>{goldLoading=false;goldError=e.message;if(active==="investments")renderPage();});}
+ if(active==="investments"&&investments.some(x=>investmentMarketKind(x.asset_type))&&!investmentQuoteLoading&&!investmentQuoteLoadedAt){refreshInvestmentQuotes();}
  const page=$("#page");if(!page)return;
  $("#crumb").textContent=pageTitles[active];
  let html="";
