@@ -75,9 +75,88 @@ create table if not exists public.budgets (
  created_at timestamptz not null default now()
 );
 
+alter table public.transactions
+  add column if not exists account_id uuid references public.accounts(id) on delete set null,
+  add column if not exists source_account_id uuid references public.accounts(id) on delete set null,
+  add column if not exists destination_account_id uuid references public.accounts(id) on delete set null;
+
 create index if not exists transactions_user_date_idx on public.transactions(user_id,transaction_date desc);
 create index if not exists transactions_user_type_idx on public.transactions(user_id,type);
+create index if not exists transactions_account_id_idx on public.transactions(account_id);
+create index if not exists transactions_source_account_id_idx on public.transactions(source_account_id);
+create index if not exists transactions_destination_account_id_idx on public.transactions(destination_account_id);
 create index if not exists accounts_user_idx on public.accounts(user_id);
+create index if not exists savings_goals_user_idx on public.savings_goals(user_id);
+create index if not exists liabilities_user_idx on public.liabilities(user_id);
+create index if not exists investments_user_idx on public.investments(user_id);
+create index if not exists budgets_user_idx on public.budgets(user_id);
+
+create or replace function public.validate_transaction_accounts()
+returns trigger
+language plpgsql
+set search_path = public, pg_temp
+as $
+declare
+  source_currency char(3);
+  destination_currency char(3);
+  linked_currency char(3);
+  source_owner uuid;
+  destination_owner uuid;
+  linked_owner uuid;
+begin
+  if new.type = 'transfer' then
+    if new.account_id is not null then
+      raise exception 'لا تربط التحويل بحساب مفرد؛ حدد المصدر والوجهة';
+    end if;
+    if new.source_account_id is null or new.destination_account_id is null
+       or new.source_account_id = new.destination_account_id then
+      raise exception 'يجب تحديد حساب مصدر وحساب وجهة مختلفين للتحويل';
+    end if;
+    select currency, user_id into source_currency, source_owner
+      from public.accounts where id = new.source_account_id;
+    select currency, user_id into destination_currency, destination_owner
+      from public.accounts where id = new.destination_account_id;
+    if source_owner is null or destination_owner is null
+       or source_owner <> new.user_id or destination_owner <> new.user_id then
+      raise exception 'حساب التحويل غير متاح لهذا المستخدم';
+    end if;
+    if source_currency <> destination_currency or new.currency <> source_currency then
+      raise exception 'التحويل يتطلب حسابين بالعملة نفسها';
+    end if;
+  else
+    new.source_account_id := null;
+    new.destination_account_id := null;
+    if new.account_id is not null then
+      select currency, user_id into linked_currency, linked_owner
+        from public.accounts where id = new.account_id;
+      if linked_owner is null or linked_owner <> new.user_id then
+        raise exception 'الحساب غير متاح لهذا المستخدم';
+      end if;
+      if linked_currency <> new.currency then
+        raise exception 'عملة العملية يجب أن تطابق عملة الحساب';
+      end if;
+    end if;
+  end if;
+  return new;
+end;
+$;
+
+drop trigger if exists transactions_validate_accounts on public.transactions;
+create trigger transactions_validate_accounts
+before insert or update of type, user_id, currency, account_id, source_account_id, destination_account_id
+on public.transactions
+for each row execute function public.validate_transaction_accounts();
+
+alter table public.transactions
+  drop constraint if exists transactions_transfer_accounts_check;
+alter table public.transactions
+  add constraint transactions_transfer_accounts_check
+  check (
+    (type = 'transfer' and account_id is null and source_account_id is not null
+      and destination_account_id is not null and source_account_id <> destination_account_id)
+    or
+    (type <> 'transfer' and source_account_id is null and destination_account_id is null)
+  );
 
 alter table public.profiles enable row level security;
 alter table public.transactions enable row level security;
