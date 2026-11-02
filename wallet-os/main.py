@@ -1,4 +1,5 @@
-import os, time
+import os, time, re
+from urllib.parse import quote
 from collections import defaultdict, deque
 from typing import Any
 import httpx
@@ -12,6 +13,7 @@ SUPABASE_PUBLISHABLE_KEY=os.getenv("SUPABASE_PUBLISHABLE_KEY","")
 OLLAMA_BASE_URL=os.getenv("OLLAMA_BASE_URL","").rstrip("/")
 OLLAMA_MODEL=os.getenv("OLLAMA_MODEL","gpt-oss:20b")
 OLLAMA_API_KEY=os.getenv("OLLAMA_API_KEY","")
+COINGECKO_API_KEY=os.getenv("COINGECKO_API_KEY","")
 WALLET_AUTH_REQUIRED=os.getenv("WALLET_AUTH_REQUIRED","true").lower() not in ("false","0","no")
 app=FastAPI(title="WALLET OS API",version="1.0.0")
 requests=defaultdict(deque)
@@ -80,6 +82,90 @@ async def market_gold():
   raise
  except (httpx.HTTPError, ValueError, TypeError):
   raise HTTPException(503, "تعذر جلب سعر الذهب العالمي حاليًا. حاول لاحقًا.")
+
+@app.get("/api/market/asset")
+async def market_asset(kind: str, symbol: str):
+ kind=kind.strip().lower()
+ raw_symbol=symbol.strip()
+ if kind not in {"metal","crypto","stock"} or not raw_symbol:
+  raise HTTPException(400,"نوع الأصل أو الرمز غير صالح.")
+ if kind=="metal":
+  code=raw_symbol.upper()
+  units={"XAU":"troy_ounce","XAG":"troy_ounce","HG":"pound"}
+  if code not in units:
+   raise HTTPException(400,"رمز المعدن غير مدعوم. استخدم XAU أو XAG أو HG.")
+  url="https://api.gold-api.com/price/"+code
+  try:
+   data=await cached_market_json("asset:"+code,url,30)
+   price=float(data.get("price",0))
+   updated=data.get("updatedAt") or data.get("updated_at")
+   if price<=0 or not updated:
+    raise HTTPException(502,"لم يُرجع مزود المعادن سعرًا ووقت تحديث صالحين.")
+   return {"kind":"metal","symbol":code,"name":data.get("name",code),"price_usd":price,"currency":"USD","unit":units[code],"updated_at":updated,"source":"Gold API","source_url":url}
+  except HTTPException:
+   raise
+  except (httpx.HTTPError,ValueError,TypeError):
+   raise HTTPException(503,"تعذر جلب السعر العالمي للمعدن حاليًا.")
+ if kind=="crypto":
+  code=raw_symbol.upper()
+  if code in {"BTC","ETH"}:
+   url="https://api.gold-api.com/price/"+code
+   try:
+    data=await cached_market_json("asset:"+code,url,30)
+    price=float(data.get("price",0));updated=data.get("updatedAt") or data.get("updated_at")
+    if price<=0 or not updated: raise HTTPException(502,"بيانات العملة الرقمية غير مكتملة.")
+    return {"kind":"crypto","symbol":code,"name":data.get("name",code),"price_usd":price,"currency":"USD","unit":"coin","updated_at":updated,"source":"Gold API","source_url":url}
+   except HTTPException: raise
+   except (httpx.HTTPError,ValueError,TypeError): raise HTTPException(503,"تعذر جلب سعر العملة الرقمية حاليًا.")
+  coin_id=raw_symbol.lower()
+  if not re.fullmatch(r"[a-z0-9-]{1,80}",coin_id):
+   raise HTTPException(400,"أدخل معرّف CoinGecko للعملة، مثل bitcoin أو solana.")
+  if not COINGECKO_API_KEY:
+   raise HTTPException(503,"هذا الرمز يحتاج مفتاح CoinGecko Demo محفوظًا في Vercel باسم COINGECKO_API_KEY. يتوفر السعر المباشر حاليًا للبيتكوين BTC والإيثيريوم ETH.")
+  url="https://api.coingecko.com/api/v3/simple/price?ids="+quote(coin_id,safe="")+"&vs_currencies=usd&include_last_updated_at=true"
+  try:
+   headers={"Accept":"application/json","x-cg-demo-api-key":COINGECKO_API_KEY}
+   async with httpx.AsyncClient(timeout=httpx.Timeout(12,connect=5)) as client:
+    response=await client.get(url,headers=headers);response.raise_for_status();payload=response.json()
+   row=payload.get(coin_id) or {}
+   price=float(row.get("usd",0));updated=row.get("last_updated_at")
+   if price<=0 or not updated: raise HTTPException(404,"لم يُعثر على معرّف العملة في CoinGecko.")
+   return {"kind":"crypto","symbol":raw_symbol.upper(),"name":coin_id.replace("-"," ").title(),"price_usd":price,"currency":"USD","unit":"coin","updated_at":time.strftime("%Y-%m-%dT%H:%M:%SZ",time.gmtime(int(updated))),"source":"CoinGecko","source_url":"https://www.coingecko.com/"}
+  except HTTPException: raise
+  except httpx.HTTPStatusError as exc:
+   code=exc.response.status_code
+   if code==429: raise HTTPException(429,"بلغت حدود طلبات CoinGecko مؤقتًا.")
+   if code in (401,403): raise HTTPException(502,"رفض CoinGecko مفتاح API. راجع COINGECKO_API_KEY في Vercel.")
+   if code==404: raise HTTPException(404,"معرّف العملة غير موجود في CoinGecko.")
+   raise HTTPException(503,"تعذر جلب سعر العملة من CoinGecko.")
+  except (httpx.HTTPError,ValueError,TypeError):
+   raise HTTPException(503,"تعذر جلب سعر العملة من CoinGecko.")
+ ticker=raw_symbol.upper()
+ if not re.fullmatch(r"[A-Z0-9.^=_-]{1,24}",ticker):
+  raise HTTPException(400,"رمز السهم غير صالح. أدخل رمز التداول فقط.")
+ url="https://query1.finance.yahoo.com/v8/finance/chart/"+quote(ticker,safe="")+"?range=1d&interval=1d"
+ try:
+  async with httpx.AsyncClient(timeout=httpx.Timeout(12,connect=5),follow_redirects=True) as client:
+   response=await client.get(url,headers={"Accept":"application/json","User-Agent":"Mozilla/5.0 (compatible; WALLET-OS/1.0)"})
+   response.raise_for_status();payload=response.json()
+  result=((payload.get("chart") or {}).get("result") or [None])[0]
+  if not result: raise HTTPException(404,"لم يُعثر على رمز السهم في مزود بيانات السوق.")
+  meta=result.get("meta") or {}
+  price=meta.get("regularMarketPrice")
+  timestamps=result.get("timestamp") or []
+  if not price:
+   close=((((result.get("indicators") or {}).get("quote") or [{}])[0]).get("close") or [])
+   price=next((v for v in reversed(close) if v is not None),None)
+  updated=meta.get("regularMarketTime") or (timestamps[-1] if timestamps else None)
+  if not price or not updated:
+   raise HTTPException(502,"لم تتوفر قيمة سوقية صالحة لهذا السهم.")
+  return {"kind":"stock","symbol":ticker,"name":meta.get("longName") or meta.get("shortName") or ticker,"price":float(price),"currency":meta.get("currency") or "USD","unit":"share","updated_at":time.strftime("%Y-%m-%dT%H:%M:%SZ",time.gmtime(int(updated))),"source":"Yahoo Finance chart feed (غير رسمي)","source_url":"https://finance.yahoo.com/","market_state":meta.get("marketState")}
+ except HTTPException: raise
+ except httpx.HTTPStatusError as exc:
+  if exc.response.status_code==404: raise HTTPException(404,"رمز التداول غير معروف لدى Yahoo Finance.")
+  raise HTTPException(503,"تعذر الوصول إلى سعر السهم حاليًا.")
+ except (httpx.HTTPError,ValueError,TypeError,KeyError):
+  raise HTTPException(503,"تعذر جلب سعر السهم حاليًا.")
 
 @app.get("/api/market/fx")
 async def market_fx(base: str = "USD", quotes: str = "EUR,SAR,AED,YER"):
