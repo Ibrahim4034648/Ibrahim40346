@@ -302,8 +302,8 @@ function renderPage(){
   html=pageHeader("ملخص قابل للمراجعة مبني على عملياتك الحقيقية.");
   html+='<div class="grid stats">'+stat("دخل السنة",money(sum("income",true)),currency,"positive")+stat("مصروفات السنة",money(sum("expense",true)),currency,"negative")+stat("صافي السنة",money(sum("income",true)-sum("expense",true)),currency,"") +stat("أهداف الادخار",goals.length,"أهداف مسجلة","")+'</div><div class="card"><div class="cardhead"><h2>التدفق السنوي</h2><span class="tiny">لا تُجمع العملات المختلفة</span></div><div class="chartbox"><canvas id="reportChart"></canvas></div></div>';
  }else if(active==="assistant"){
-  html=pageHeader("مساعد لتحليل سجلاتك دون اختراع أرقام أو تنفيذ معاملات نيابة عنك.");
-  html+='<div class="card chatbox"><div class="messages" id="messages"><div class="msg bot">مرحبًا. أستطيع تحليل العمليات المسجلة في حسابك. عند تفعيل Ollama على خادم آمن سأستخدم النموذج المحلي لتحليل البيانات؛ حاليًا يمكنني تقديم ملخصات حسابية مباشرة من سجلك.</div></div><div class="chatrow"><input class="field" id="chatInput" placeholder="مثال: ما أكبر تصنيف للمصروفات؟"><button class="btn primary" id="sendChat">إرسال</button></div><div class="tiny">لا يتم إرسال بياناتك إلى خدمة نموذج خارجي ما لم يكن اتصال Ollama مضبوطًا في الخادم.</div></div>';
+  html=pageHeader("وكيلك المالي لتحليل عملياتك وحساباتك ومحفظة الذهب. لا ينفذ معاملات مالية.");
+  html+='<div class="card chatbox"><div class="cardhead"><div><h2>WALLET OS Agent</h2><span id="agentStatus" class="tiny">جارٍ فحص اتصال Ollama…</span></div><button class="btn small" id="checkAgent">فحص الاتصال</button></div><div class="messages" id="messages"><div class="msg bot">مرحبًا. أرسل سؤالك عن الدخل والمصروفات والميزانيات والاستثمارات. عند اتصال Ollama سيجيب النموذج من البيانات التي اخترت عرضها في هذه الجلسة. إذا لم يكن متصلًا ستظهر لك حالة ذلك بوضوح.</div></div><div class="chatrow"><input class="field" id="chatInput" placeholder="اسأل وكيلك المالي…"><button class="btn primary" id="sendChat">إرسال</button></div><div class="tiny">يُرسل إلى الخادم ملخص مالي محدود بعد تسجيل دخولك؛ لا تُرسل مفاتيح أو معرفات الحسابات إلى النموذج.</div></div>';
  }else{
   html=pageHeader("عملة العرض وأسعار الصرف المرجعية وتفضيلات حسابك.");
   html+='<div class="grid lower"><div class="card"><h2>عملة العرض</h2><p class="muted" style="font-size:12px;line-height:1.9">تُحفظ كل عملية بعملتها الأصلية. عند توفر سعر صرف بتاريخ ومصدر، تتحول الإجماليات للعرض دون تعديل أصل العملية.</p><label class="fieldlabel">العملة المفضلة<select class="field" id="profileCurrency">'+currencyOptions(currency)+'</select></label><button class="btn primary" id="savePrefs">حفظ التفضيلات</button><div style="height:20px"></div><h2>الحساب</h2><p class="muted" style="font-size:12px;line-height:1.9">البريد: '+esc(user.email||"")+'<br>قاعدة البيانات: Supabase<br>العزل: سياسات RLS للمستخدم الحالي</p><button class="btn" id="logout">تسجيل الخروج</button></div><div class="card"><div class="cardhead"><div><h2>أسعار الصرف</h2><p class="tiny">سعر 1 USD مقابل العملات الأخرى</p></div><button class="btn small" id="refreshFx">تحديث الأسعار المرجعية</button></div><div class="tablewrap"><table><thead><tr><th>العملة</th><th>سعر 1 USD</th></tr></thead><tbody>'+[["YER","ريال يمني"],["SAR","ريال سعودي"],["AED","درهم إماراتي"],["EUR","يورو"]].map(([code,name])=>'<tr><td>'+name+' <span class="pill">'+code+'</span></td><td><input class="field" id="fx_'+code+'" type="number" min="0.00000001" step="any" value="'+(fxRates.USD?.[code]||"")+'" placeholder="اضغط تحديث أو أدخل السعر"></td></tr>').join("")+'</tbody></table></div><div class="tiny" style="margin:12px 0">المصدر: '+esc(fxRateSource||"لم يتم التحديث")+' · تاريخ السعر: '+esc(fxRateDate||"لا يوجد سعر محفوظ")+'</div><button class="btn primary" id="saveManualFx">حفظ الأسعار اليدوية</button><p class="tiny" style="line-height:1.8;margin-top:12px">Frankfurter يقدم أسعارًا مرجعية يومية (Mid-market)، وليست أسعار صرف نقدية لحظية. قد يختلف سعر الريال اليمني الفعلي حسب المدينة والسوق ومحل الصرافة. استخدم السعر المحلي الذي تتحقق منه عند اتخاذ قرار فعلي.</p></div></div>';
@@ -317,7 +317,8 @@ function renderPage(){
  document.querySelectorAll("[data-goto]").forEach(el=>el.onclick=()=>go(el.dataset.goto));
  document.querySelectorAll("[data-edit]").forEach(el=>el.onclick=()=>el.dataset.edit==="transactions"?openTransaction(el.dataset.id):openRecord(el.dataset.edit,el.dataset.id));
  document.querySelectorAll("[data-delete]").forEach(el=>el.onclick=()=>deleteRecord(el.dataset.delete,el.dataset.id));
- if($("#sendChat")){$("#sendChat").onclick=sendChat;$("#chatInput").onkeydown=e=>{if(e.key==="Enter")sendChat();};}
+ if($("#sendChat")){$("#sendChat").onclick=sendChat;$("#chatInput").onkeydown=e=>{if(e.key==="Enter")sendChat();};checkAgentStatus();}
+ if($("#checkAgent"))$("#checkAgent").onclick=checkAgentStatus;
  if($("#savePrefs"))$("#savePrefs").onclick=async()=>{const v=$("#profileCurrency").value;const r=await supa.from("profiles").upsert({id:user.id,base_currency:v});if(r.error)toast(r.error.message);else{currency=v;toast("تم حفظ التفضيل");renderPage();}};
  if($("#refreshFx"))$("#refreshFx").onclick=refreshFxRates;
  if($("#saveManualFx"))$("#saveManualFx").onclick=saveManualFxRates;
@@ -437,10 +438,19 @@ async function deleteRecord(kind,id){
  renderPage();toast("تم الحذف من قاعدة البيانات.");
 }
 function closeModal(){const m=$("#modal");if(m)m.classList.add("hidden");}
+async function checkAgentStatus(){
+ const badge=$("#agentStatus");if(badge)badge.textContent="جارٍ فحص اتصال Ollama…";
+ try{
+  const response=await fetch("/api/health",{cache:"no-store"}),data=await response.json();
+  const ready=Boolean(response.ok&&data.ollama_reachable);
+  if(badge){badge.textContent=ready?"متصل · "+(data.model||"Ollama"):"غير متصل · لم يتم إعداد خادم Ollama دائم";badge.style.color=ready?"#27834a":"#b46a32";}
+  return ready;
+ }catch(error){if(badge){badge.textContent="تعذر فحص خدمة Ollama";badge.style.color="#b46a32";}return false;}
+}
 async function sendChat(){
  const input=$("#chatInput"),q=input?.value.trim();if(!q)return;
  const box=$("#messages");box.insertAdjacentHTML("beforeend",'<div class="msg user">'+esc(q)+'</div>');input.value="";
- const context={currency,income:sum("income"),expenses:sum("expense"),net:sum("income")-sum("expense"),transactions:transactions.slice(0,50).map(t=>({type:t.type,amount:t.amount,currency:t.currency,category:t.category,date:t.transaction_date}))};
+ const context={currency,income:sum("income"),expenses:sum("expense"),net:sum("income")-sum("expense"),fx_rates:fxRates.USD,gold_market:goldQuote?{price_usd_troy_ounce:goldQuote.price_usd_troy_ounce,updated_at:goldQuote.updated_at,source:goldQuote.source}:null,investments:investments.map(x=>({asset_type:x.asset_type,name:x.name,invested_amount:x.invested_amount,current_value:x.asset_type==="gold"?goldHoldingValue(x):x.current_value,currency:x.currency,metadata:x.asset_type==="gold"?{weight_grams:x.metadata?.weight_grams,karat:x.metadata?.karat}:null})),transactions:transactions.slice(0,50).map(t=>({type:t.type,amount:t.amount,currency:t.currency,category:t.category,date:t.transaction_date}))};
  let answer="";
  try{
   const session=(await supa.auth.getSession()).data.session;
