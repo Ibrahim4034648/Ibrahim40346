@@ -70,8 +70,9 @@ body.light .btn.primary{color:#17140e}
 #sidebarBrand:focus-visible{outline:2px solid var(--gold);outline-offset:4px;border-radius:12px}
 .menu-toggle{display:inline-flex}
 
+.investment-pnl-card{transition:background .2s,border-color .2s}.investment-pnl-card.profit{border-color:#368b55;background:linear-gradient(145deg,#153021,#151719)}.investment-pnl-card.loss{border-color:#a44743;background:linear-gradient(145deg,#3a211f,#151719)}.investment-pnl-card.neutral{border-color:var(--line)}.investment-pnl-card.profit .statlabel{color:#9bd3a8}.investment-pnl-card.loss .statlabel{color:#e5a09b}.investment-chart-card{margin:0 0 16px}.investment-chart-wrap{height:350px;position:relative;min-width:0}.investment-holdings{margin-bottom:14px}.investment-holdings .tablewrap{max-height:570px}.investment-footnote{line-height:1.9;margin:8px 4px 18px}.investment-summary .statvalue{font-size:clamp(20px,2vw,27px)}body.light .investment-pnl-card.profit{background:linear-gradient(145deg,#e7f5e9,#fff);border-color:#70b27e}body.light .investment-pnl-card.loss{background:linear-gradient(145deg,#fae8e6,#fff);border-color:#d88a84}body.light .investment-pnl-card.profit .statlabel{color:#286f3b}body.light .investment-pnl-card.loss .statlabel{color:#a43c36}
 @media(max-width:1050px){.app{grid-template-columns:215px minmax(0,1fr)}.content{padding:21px}.stats{grid-template-columns:repeat(2,minmax(0,1fr))}.maincharts,.lower{grid-template-columns:1fr}.hero{gap:24px}.featuregrid{grid-template-columns:repeat(2,1fr)}}
-@media(max-width:720px){.account-meta,.password-form{grid-template-columns:1fr}.password-actions{align-items:stretch}.wrap{width:min(100% - 28px,1180px)}.sitehead{height:72px}.site-nav{gap:13px}.site-nav a:not(.btn){display:none}.hero{grid-template-columns:1fr;padding:50px 0 58px;gap:12px}.hero-copy h1{font-size:44px}.hero-copy p{font-size:14px}.hero-art{min-height:350px}.mock{width:min(390px,94%)}.floatnote.one{left:0;top:25px}.floatnote.two{right:0;bottom:10px}.features{padding:28px 0 65px}.featuregrid{grid-template-columns:1fr}.sectiontitle h2{font-size:25px}.sitefoot{font-size:11px}.authpage{grid-template-columns:1fr}.authvisual{display:none}.authpanelwrap{min-height:100vh;padding:22px}.app{grid-template-columns:1fr}.sidebar{position:fixed;z-index:30;top:0;bottom:0;right:0;width:270px;transform:translateX(105%);transition:.25s;box-shadow:none}.sidebar.open{transform:translateX(0);box-shadow:0 0 0 100vmax #0009}.menu-toggle{display:inline-flex}.topbar{height:67px;padding:0 12px}.content{padding:17px 12px}.pagehead h1{font-size:24px}.stats{gap:9px}.card{padding:14px}.statvalue{font-size:19px}.modulegrid{grid-template-columns:repeat(2,minmax(0,1fr))}.topactions{gap:5px}.topactions .btn.primary{padding:9px 10px;font-size:11px}.formgrid{grid-template-columns:1fr}.chartbox{height:245px}}
+@media(max-width:720px){.investment-chart-wrap{height:290px}.investment-holdings .tablewrap{max-height:none}.investment-summary{grid-template-columns:1fr 1fr}.investment-pnl-card{grid-column:1/-1}.account-meta,.password-form{grid-template-columns:1fr}.password-actions{align-items:stretch}.wrap{width:min(100% - 28px,1180px)}.sitehead{height:72px}.site-nav{gap:13px}.site-nav a:not(.btn){display:none}.hero{grid-template-columns:1fr;padding:50px 0 58px;gap:12px}.hero-copy h1{font-size:44px}.hero-copy p{font-size:14px}.hero-art{min-height:350px}.mock{width:min(390px,94%)}.floatnote.one{left:0;top:25px}.floatnote.two{right:0;bottom:10px}.features{padding:28px 0 65px}.featuregrid{grid-template-columns:1fr}.sectiontitle h2{font-size:25px}.sitefoot{font-size:11px}.authpage{grid-template-columns:1fr}.authvisual{display:none}.authpanelwrap{min-height:100vh;padding:22px}.app{grid-template-columns:1fr}.sidebar{position:fixed;z-index:30;top:0;bottom:0;right:0;width:270px;transform:translateX(105%);transition:.25s;box-shadow:none}.sidebar.open{transform:translateX(0);box-shadow:0 0 0 100vmax #0009}.menu-toggle{display:inline-flex}.topbar{height:67px;padding:0 12px}.content{padding:17px 12px}.pagehead h1{font-size:24px}.stats{gap:9px}.card{padding:14px}.statvalue{font-size:19px}.modulegrid{grid-template-columns:repeat(2,minmax(0,1fr))}.topactions{gap:5px}.topactions .btn.primary{padding:9px 10px;font-size:11px}.formgrid{grid-template-columns:1fr}.chartbox{height:245px}}
 @media(prefers-reduced-motion:reduce){*,*::before,*::after{scroll-behavior:auto!important;animation-duration:.01ms!important;transition-duration:.01ms!important}}
 </style>
 </head>
@@ -99,10 +100,10 @@ function currencyOptions(selected){return ["YER","SAR","USD","AED"].map(c=>"<opt
 async function refreshFxRates(){
  const button=$("#refreshFx");if(button){button.disabled=true;button.textContent="جارٍ تحديث الأسعار…";}
  try{
-  const response=await fetch("/api/market/fx?base=USD&quotes=EUR,AED",{cache:"no-store"});
+  const response=await fetch("/api/market/fx?base=USD&quotes=EUR,AED,SAR",{cache:"no-store"});
   const data=await response.json();if(!response.ok)throw new Error(data.detail||"تعذر جلب أسعار الصرف");
   const date=data.date||new Date().toISOString().slice(0,10),rows=[];
-  for(const quote of ["AED","EUR"]){
+  for(const quote of ["AED","EUR","SAR"]){
    const rate=Number(data.rates?.[quote]);if(rate>0)rows.push({user_id:user.id,base_currency:"USD",quote_currency:quote,rate,rate_date:date,source:"Frankfurter"});
   }
   if(!rows.length)throw new Error("لم تصل أسعار عملات صالحة من المصدر.");
@@ -170,7 +171,7 @@ function investmentMarketValue(item){
 }
 async function refreshInvestmentQuotes(){
  if(investmentQuoteLoading)return;
- investmentQuoteLoading=true;investmentQuoteError=null;
+ investmentQuoteLoading=true;investmentQuoteError=null;marketQuotes={};
  try{
   const tasks=[...new Map(investments.filter(x=>investmentMarketKind(x.asset_type)).map(x=>{const symbol=investmentSymbol(x.asset_type,x.metadata||{});return [investmentQuoteKey(x.asset_type,symbol),{type:x.asset_type,symbol}];})).values()];
   const results=await Promise.allSettled(tasks.map(x=>fetchInvestmentQuote(x.type,x.symbol)));
@@ -182,7 +183,9 @@ async function refreshInvestmentQuotes(){
    const quote=marketQuotes[investmentQuoteKey(item.asset_type,symbol)];if(!quote)continue;
    const value=investmentQuoteValue(item,quote);
    if(value===null||!Number.isFinite(value)||value<0)continue;
-   const nextMeta={...meta,market_symbol:symbol,market_unit_price:quote.price,market_currency:quote.currency,market_source:quote.source,market_updated_at:quote.updated_at,market_unit:quote.unit,market_quote_name:quote.name};
+   let rawUnit=quote.price;if(item.asset_type==="gold"||item.asset_type==="silver")rawUnit=quote.price/31.1034768*(item.asset_type==="gold"?Number(meta.karat||24)/24:1);
+   const marketUnit=convertAmount(rawUnit,quote.currency||"USD",item.currency);
+   const nextMeta={...meta,market_symbol:symbol,market_unit_price:marketUnit,market_currency:item.currency,market_raw_price:quote.price,market_raw_currency:quote.currency,market_source:quote.source,market_updated_at:quote.updated_at,market_unit:investmentUnitLabel(item.asset_type),market_quote_unit:quote.unit,market_quote_name:quote.name};
    const saved=await supa.from("investments").update({current_value:value,metadata:nextMeta}).eq("id",item.id).eq("user_id",user.id);
    if(!saved.error){item.current_value=value;item.metadata=nextMeta;}
   }
@@ -445,7 +448,7 @@ function makeInvestmentChart(){
  const positive=rows.reduce((s,x)=>s+x.value-x.cost,0)>=0;
  charts.investment=new Chart(ctx,{type:"bar",data:{labels:rows.map(x=>x.item.name+(x.item.metadata?.purchase_date?" · "+x.item.metadata.purchase_date:"")),datasets:[
   {label:"مبلغ الشراء",data:rows.map(x=>x.cost),backgroundColor:"#c5a15c",borderRadius:6},
-  {label:"القيمة السوقية",data:rows.map(x=>x.value),backgroundColor:positive?"#32965b":"#c84b46",borderRadius:6}
+  {label:"القيمة السوقية",data:rows.map(x=>x.value),backgroundColor:rows.map(x=>x.value>=x.cost?"#32965b":"#c84b46"),borderRadius:6}
  ]},options:{indexAxis:"y",responsive:true,maintainAspectRatio:false,plugins:{legend:{labels:{color:textColor,usePointStyle:true,boxWidth:8,font:{family:"IBM Plex Sans Arabic"}}},tooltip:{callbacks:{label:c=>c.dataset.label+": "+money(c.raw,currency)}}},scales:{x:{grid:{color:"#ffffff12"},ticks:{color:textColor}},y:{grid:{display:false},ticks:{color:textColor,font:{family:"IBM Plex Sans Arabic"}}}}}});
 }
 function openTransaction(id){
@@ -518,6 +521,7 @@ function openRecord(kind,id,forceGold=false){
    if(label)label.firstChild.textContent=({gold:"الوزن بالغرام",silver:"الوزن بالغرام",copper:"الكمية بالرطل",crypto:"عدد العملات",saudi_stock:"عدد الأسهم",global_stock:"عدد الأسهم"})[type]||"الكمية";
    const symbol=$("#f_market_symbol");
    if(symbol){symbol.placeholder=type==="crypto"?"BTC أو ETH أو CoinGecko ID مثل solana":type==="saudi_stock"?"رمز تداول سعودي مثل 2222.SR":type==="global_stock"?"رمز عالمي مثل AAPL أو MSFT":"رمز الأصل";if(["gold","silver","copper"].includes(type))symbol.value=({gold:"XAU",silver:"XAG",copper:"HG"})[type];}
+   if(!$("#f_name").value.trim())$("#f_name").value=({crypto:"عملة رقمية",saudi_stock:"سهم سعودي",global_stock:"سهم عالمي",other:"أصل استثماري"})[type]||$("#f_name").value;
    if(type==="gold"&&!$("#f_name").value.trim())$("#f_name").value="ذهب استثماري";
    if(type==="silver"&&!$("#f_name").value.trim())$("#f_name").value="فضة استثمارية";
    if(type==="copper"&&!$("#f_name").value.trim())$("#f_name").value="نحاس";
@@ -553,7 +557,7 @@ function openRecord(kind,id,forceGold=false){
     const convertedUnit=convertAmount(marketUnit,from,payload.currency);
     if(convertedUnit===null){toast("لا يتوفر سعر صرف من "+from+" إلى "+payload.currency+". حدّث أسعار الصرف أو أدخل سعرًا يدويًا في الإعدادات.");return;}
     const currentValue=quantity*convertedUnit;
-    if(!(currentValue>=0)&&Number.isFinite(currentValue)){toast("تعذر احتساب القيمة السوقية.");return;}
+    if(!Number.isFinite(currentValue)||currentValue<0){toast("تعذر احتساب القيمة السوقية.");return;}
     payload.current_value=currentValue;
     payload.metadata={...meta,symbol,quantity,unit:investmentUnitLabel(type),purchase_unit_price:invested/quantity,market_unit_price:convertedUnit,market_currency:payload.currency,market_unit:investmentUnitLabel(type),market_quote_unit:quote.unit,market_raw_price:quote.price,market_raw_currency:from,market_source:quote.source,market_updated_at:quote.updated_at,market_name:quote.name,purchase_date:$("#f_purchase_date").value||null};
     if(type==="gold"){payload.metadata.metal="XAU";payload.metadata.weight_grams=quantity;payload.metadata.karat=karat;}
