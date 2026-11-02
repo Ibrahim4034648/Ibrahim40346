@@ -157,7 +157,7 @@ async function fetchInvestmentQuote(type,symbol){
 function investmentQuantity(item){const m=item.metadata||{};return Number(m.quantity??m.weight_grams)||0;}
 function investmentUnitLabel(type){return ({gold:"غرام",silver:"غرام",copper:"رطل",crypto:"عملة",saudi_stock:"سهم",global_stock:"سهم"}[type]||"وحدة");}
 function investmentQuoteValue(item,quote){
- if(!quote)return Number(item.current_value)||0;
+ if(!quote){const saved=Number(item.current_value);return saved>0?saved:null;}
  const meta=item.metadata||{},type=item.asset_type,quantity=investmentQuantity(item);
  if(!(quantity>0))return Number(item.current_value)||0;
  let amount=quantity*quote.price,from=quote.currency||"USD";
@@ -377,9 +377,10 @@ function renderPage(){
  }else if(active==="investments"){
   const items=investments;
   const summaryRows=items.map(item=>({item,cost:convertAmount(item.invested_amount,item.currency,currency),value:(()=>{const v=investmentMarketValue(item);return v===null?null:convertAmount(v,item.currency,currency);})()}));
-  const totalCost=summaryRows.reduce((s,x)=>s+(x.cost===null?0:x.cost),0);
-  const totalValue=summaryRows.reduce((s,x)=>s+(x.value===null?0:x.value),0);
-  const comparable=summaryRows.filter(x=>x.cost!==null&&x.value!==null).length;
+  const comparableRows=summaryRows.filter(x=>x.cost!==null&&x.value!==null);
+  const totalCost=comparableRows.reduce((s,x)=>s+x.cost,0);
+  const totalValue=comparableRows.reduce((s,x)=>s+x.value,0);
+  const comparable=comparableRows.length;
   const excluded=items.length-comparable,pnl=totalValue-totalCost,margin=totalCost>0?pnl/totalCost*100:0;
   const pnlClass=pnl>0?"positive":pnl<0?"negative":"";
   const pnlTone=pnl>0?"profit":pnl<0?"loss":"neutral";
@@ -520,11 +521,14 @@ function openRecord(kind,id,forceGold=false){
    const q=$("#f_quantity"),label=$("#quantityWrap");
    if(label)label.firstChild.textContent=({gold:"الوزن بالغرام",silver:"الوزن بالغرام",copper:"الكمية بالرطل",crypto:"عدد العملات",saudi_stock:"عدد الأسهم",global_stock:"عدد الأسهم"})[type]||"الكمية";
    const symbol=$("#f_market_symbol");
-   if(symbol){symbol.placeholder=type==="crypto"?"BTC أو ETH أو CoinGecko ID مثل solana":type==="saudi_stock"?"رمز تداول سعودي مثل 2222.SR":type==="global_stock"?"رمز عالمي مثل AAPL أو MSFT":"رمز الأصل";if(["gold","silver","copper"].includes(type))symbol.value=({gold:"XAU",silver:"XAG",copper:"HG"})[type];}
-   if(!$("#f_name").value.trim())$("#f_name").value=({crypto:"عملة رقمية",saudi_stock:"سهم سعودي",global_stock:"سهم عالمي",other:"أصل استثماري"})[type]||$("#f_name").value;
-   if(type==="gold"&&!$("#f_name").value.trim())$("#f_name").value="ذهب استثماري";
-   if(type==="silver"&&!$("#f_name").value.trim())$("#f_name").value="فضة استثمارية";
-   if(type==="copper"&&!$("#f_name").value.trim())$("#f_name").value="نحاس";
+   if(symbol){
+    const previous=symbol.value.toUpperCase(),metalSymbols=["XAU","XAG","HG"],cryptoSymbols=["BTC","ETH"];
+    symbol.placeholder=type==="crypto"?"BTC أو ETH أو CoinGecko ID مثل solana":type==="saudi_stock"?"رمز تداول سعودي مثل 2222.SR":type==="global_stock"?"رمز عالمي مثل AAPL أو MSFT":"رمز الأصل";
+    if(["gold","silver","copper"].includes(type))symbol.value=({gold:"XAU",silver:"XAG",copper:"HG"})[type];
+    else if(type==="crypto"&&metalSymbols.includes(previous))symbol.value="BTC";
+    else if(["saudi_stock","global_stock"].includes(type)&&(metalSymbols.includes(previous)||cryptoSymbols.includes(previous)))symbol.value="";
+   }
+
   };
   $("#f_asset_type").onchange=toggleFields;
   if(forceGold)$("#f_asset_type").value="gold";
