@@ -381,21 +381,51 @@ function fieldHTML(field,item){
  if(type==="select")return '<label class="fieldlabel">'+label+'<select class="field" id="f_'+key+'">'+options.map(x=>{const v=x.split(":");return '<option value="'+v[0]+'" '+(val===v[0]?"selected":"")+'>'+v[1]+'</option>';}).join("")+'</select></label>';
  return '<label class="fieldlabel">'+label+'<input class="field" id="f_'+key+'" type="'+type+'" '+(type==="number"?'min="0" step="0.01"':"")+' value="'+esc(val)+'" '+(key==="name"?"required":"")+'></label>';
 }
-function openRecord(kind,id){
+function openRecord(kind,id,forceGold=false){
  const cfg=modules[kind],table=cfg.table,items=moduleItems(kind),item=id?items.find(x=>x.id===id):null;
- $("#modalTitle").textContent=(item?"تعديل ":"إضافة ")+cfg.title;
+ const goldMode=kind==="investments"&&(forceGold||item?.asset_type==="gold");
+ $("#modalTitle").textContent=(item?"تعديل ":"إضافة ")+(goldMode?"استثمار ذهب":cfg.title);
  $("#formFields").innerHTML=cfg.fields.map(f=>fieldHTML(f,item)).join("");
+ if(kind==="investments"){
+  const meta=item?.metadata||{};
+  $("#formFields").insertAdjacentHTML("beforeend",'<label class="fieldlabel gold-only" id="goldWeightWrap">وزن الذهب بالغرام<input class="field" id="f_weight_grams" type="number" min="0.001" step="0.001" value="'+esc(meta.weight_grams||"")+'" placeholder="مثال: 10"></label><label class="fieldlabel gold-only" id="goldKaratWrap">العيار<select class="field" id="f_karat">'+[24,22,21,18].map(k=>'<option value="'+k+'" '+(Number(meta.karat||24)===k?"selected":"")+'>'+k+' قيراط</option>').join("")+'</select></label><label class="fieldlabel gold-only" id="goldDateWrap">تاريخ الشراء<input class="field" id="f_purchase_date" type="date" value="'+esc(meta.purchase_date||new Date().toISOString().slice(0,10))+'"></label>');
+  const toggleGoldFields=()=>{
+   const isGold=$("#f_asset_type").value==="gold";
+   ["goldWeightWrap","goldKaratWrap","goldDateWrap"].forEach(id=>{const el=$("#"+id);if(el)el.style.display=isGold?"grid":"none";});
+   const currentLabel=$("#f_current_value")?.closest("label");if(currentLabel){currentLabel.style.display=isGold?"none":"grid";}
+   if(isGold&&!$("#f_name").value.trim())$("#f_name").value="ذهب استثماري";
+  };
+  $("#f_asset_type").onchange=toggleGoldFields;
+  if(forceGold)$("#f_asset_type").value="gold";
+  toggleGoldFields();
+ }
  $("#modal").classList.remove("hidden");
  $("#recordForm").onsubmit=async e=>{
   e.preventDefault();
   const payload={user_id:user.id};for(const f of cfg.fields){const el=$("#f_"+f[0]);payload[f[0]]=el.value===""?null:(f[2]==="number"?Number(el.value):el.value);}
   if(kind==="accounts"&&payload.opening_balance===null)payload.opening_balance=0;
   if(kind==="savings"&&payload.current_amount===null)payload.current_amount=0;
-  if(kind==="investments"){if(payload.invested_amount===null)payload.invested_amount=0;if(payload.current_value===null)payload.current_value=0;}
+  if(kind==="investments"){
+   if(payload.invested_amount===null)payload.invested_amount=0;
+   if(payload.asset_type==="gold"){
+    const weight=Number($("#f_weight_grams")?.value),karat=Number($("#f_karat")?.value||24);
+    if(!(weight>0)){toast("أدخل وزن الذهب بالغرام.");return;}
+    try{if(!goldQuote)await fetchGoldQuote();}catch(error){toast("لا يمكن تسعير الذهب دون سعر عالمي حديث: "+error.message);return;}
+    const unit=goldGramPrice(karat,payload.currency);
+    if(unit===null){toast("حدّث أسعار الصرف أولًا أو اختر USD لحساب قيمة الذهب.");return;}
+    payload.current_value=weight*unit;
+    payload.metadata={metal:"XAU",weight_grams:weight,karat,purchase_date:$("#f_purchase_date").value||null,market_source:goldQuote.source,market_updated_at:goldQuote.updated_at,market_price_usd_oz:goldQuote.price_usd_troy_ounce};
+    if(!payload.name)payload.name="ذهب عيار "+karat;
+   }else{
+    if(payload.current_value===null)payload.current_value=0;
+    payload.metadata=item?.metadata||{};
+   }
+  }
   if(item)payload.id=item.id;else payload.id=crypto.randomUUID();
   const r=await supa.from(table).upsert(payload).select().single();if(r.error){toast(r.error.message);return;}
   const ix=items.findIndex(x=>x.id===payload.id);if(ix>=0)items[ix]=r.data;else items.unshift(r.data);
-  closeModal();renderPage();toast("تم حفظ السجل.");
+  if(kind==="investments")investments=items;
+  closeModal();renderPage();toast(kind==="investments"&&payload.asset_type==="gold"?"تم حفظ استثمار الذهب وربط قيمته بالسعر العالمي.":"تم حفظ السجل.");
  };
 }
 async function deleteRecord(kind,id){
