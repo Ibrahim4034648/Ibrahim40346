@@ -79,7 +79,7 @@ body.light .btn.primary{color:#17140e}
 "use strict";
 const $=s=>document.querySelector(s);
 const root=$("#root");
-let supa=null,user=null,active="dashboard",currency="YER",transactions=[],accounts=[],goals=[],liabilities=[],investments=[],budgets=[],charts={},fxRates={USD:{USD:1}},fxRateDate=null,fxRateSource=null,goldQuote=null,goldLoading=false;
+let supa=null,user=null,active="dashboard",currency="YER",transactions=[],accounts=[],goals=[],liabilities=[],investments=[],budgets=[],charts={},fxRates={USD:{USD:1}},fxRateDate=null,fxRateSource=null,goldQuote=null,goldLoading=false,goldError=null;
 const currencyNames={YER:"ريال يمني",SAR:"ريال سعودي",USD:"دولار أمريكي",AED:"درهم إماراتي"};
 const pageTitles={dashboard:"الرئيسية",transactions:"كل العمليات",income:"الدخل",expenses:"المصروفات",accounts:"الحسابات",savings:"أهداف الادخار",debts:"الالتزامات",investments:"الاستثمارات",budgets:"الميزانيات",reports:"التقارير",assistant:"المساعد الذكي",settings:"الإعدادات"};
 const nav=[["dashboard","▦","الرئيسية"],["transactions","⇄","كل العمليات"],["income","↗","الدخل"],["expenses","↘","المصروفات"],["accounts","▤","الحسابات"],["savings","◎","الادخار"],["debts","◈","الالتزامات"],["investments","⌁","الاستثمارات"],["budgets","◫","الميزانيات"],["reports","▥","التقارير"],["assistant","✳","المساعد الذكي"],["settings","⚙","الإعدادات"]];
@@ -128,7 +128,7 @@ async function fetchGoldQuote(){
  const response=await fetch("/api/market/gold",{cache:"no-store"});
  const data=await response.json();if(!response.ok)throw new Error(data.detail||"تعذر جلب سعر الذهب");
  if(!(Number(data.price_usd_troy_ounce)>0))throw new Error("سعر الذهب غير صالح.");
- goldQuote=data;return data;
+ goldQuote=data;goldError=null;return data;
 }
 function goldGramPrice(karat=24,target=currency){
  if(!goldQuote)return null;
@@ -204,7 +204,7 @@ async function loadData(){
  fxRates={USD:{USD:1}};fxRateDate=null;fxRateSource=null;
  for(const row of fx.data||[]){const quote=String(row.quote_currency||"").trim();if(quote&&!fxRates.USD[quote])fxRates.USD[quote]=Number(row.rate);if(!fxRateDate||row.rate_date>fxRateDate){fxRateDate=row.rate_date;fxRateSource=row.source;}}
 }
-async function enterApp(){try{await loadData();renderApp();}catch(e){renderLanding();toast("تعذر تحميل بيانات الحساب: "+e.message);}}
+async function enterApp(){try{await loadData();renderApp();if(!fxRateDate||Date.now()-new Date(fxRateDate+"T23:59:00Z").getTime()>36*60*60*1000)refreshFxRates();}catch(e){renderLanding();toast("تعذر تحميل بيانات الحساب: "+e.message);}}
 function renderApp(){
  destroyCharts();
  root.innerHTML='<div class="app"><aside class="sidebar" id="sidebar"><div class="brand" id="sidebarBrand" role="button" tabindex="0" title="تصغير أو توسيع القائمة"><span class="brandmark">W</span><span><b class="brandname">WALLET OS</b><small class="brandtag">PERSONAL FINANCE OS</small></span></div><div><div class="navlabel">مساحتك المالية</div><nav class="nav">'+nav.map(n=>'<button data-page="'+n[0]+'" class="'+(active===n[0]?"active":"")+'"><span class="navico">'+n[1]+'</span>'+n[2]+'</button>').join("")+'</nav></div><div class="sidebarfoot">بيانات حسابك مستقلة وخاصة.<br><span class="gold">سجّل أرقامك الفعلية فقط.</span></div></aside><main class="main"><header class="topbar"><div style="display:flex;align-items:center;gap:12px"><button class="btn small menu-toggle" id="menuToggle">☰</button><span class="crumb">WALLET OS / <b id="crumb">'+pageTitles[active]+'</b></span></div><div class="topactions"><select class="select" id="currencySelect">'+currencyOptions(currency)+'</select><button class="btn small" id="themeToggle" title="تغيير المظهر">◐</button><button class="btn primary small" id="quickAdd">＋ إضافة عملية</button></div></header><section class="content" id="page"></section></main></div><div class="modal hidden" id="modal"><div class="modalbox"><div class="cardhead"><h2 id="modalTitle">إضافة</h2><button class="btn small" id="modalClose">✕</button></div><form id="recordForm"><div class="formgrid" id="formFields"></div><div class="formactions"><button class="btn" type="button" id="modalCancel">إلغاء</button><button class="btn primary" type="submit" id="modalSave">حفظ</button></div></form></div></div><div id="toast" class="toast hidden" role="status"></div>';
@@ -272,7 +272,7 @@ function samePeriod(date,period){
 }
 function renderPage(){
  destroyCharts();
- if(active==="investments"&&!goldQuote&&!goldLoading){goldLoading=true;fetchGoldQuote().then(()=>{goldLoading=false;if(active==="investments")renderPage();}).catch(e=>{goldLoading=false;toast("تعذر تحميل سعر الذهب: "+e.message);if(active==="investments")renderPage();});}
+ if(active==="investments"&&!goldQuote&&!goldLoading&&!goldError){goldLoading=true;fetchGoldQuote().then(()=>{goldLoading=false;if(active==="investments")renderPage();}).catch(e=>{goldLoading=false;goldError=e.message;if(active==="investments")renderPage();});}
  const page=$("#page");if(!page)return;
  $("#crumb").textContent=pageTitles[active];
  let html="";
@@ -291,7 +291,7 @@ function renderPage(){
   html=pageHeader("سجل مشترياتك من الذهب والأصول، وقارن تكلفة الشراء بالقيمة المرجعية المحسوبة من السعر العالمي.",'<button class="btn primary" id="addGoldInvestment">＋ إضافة استثمار ذهب</button> <button class="btn" id="moduleAdd">＋ أصل آخر</button>');
   html+='<div class="grid stats">'+stat("ذهب 24 قيراط / غرام",px24===null?"—":money(px24,currency),"سعر مرجعي مشتق من XAU/USD","")+stat("ذهب 22 قيراط / غرام",px22===null?"—":money(px22,currency),"قيمة المعدن دون مصنعية","")+stat("ذهب 21 قيراط / غرام",px21===null?"—":money(px21,currency),"قيمة المعدن دون مصنعية","")+stat("ذهب 18 قيراط / غرام",px18===null?"—":money(px18,currency),"قيمة المعدن دون مصنعية","")+'</div>';
   html+='<div class="card" style="margin-bottom:16px"><div class="cardhead"><div><h2>السعر العالمي للذهب XAU</h2><p class="tiny">السعر الفوري بالدولار للأونصة الترويسية · المصدر: Gold API</p></div><button class="btn small" id="refreshGold">تحديث سعر الذهب</button></div>';
-  html+=spot?('<div class="grid stats"><div><div class="tiny">سعر الأونصة بالدولار</div><div class="statvalue">'+money(spot.price_usd_troy_ounce,"USD")+'</div></div><div><div class="tiny">سعر الغرام 24 بالدولار</div><div class="statvalue">'+money(Number(spot.price_usd_troy_ounce)/31.1034768,"USD")+'</div></div><div><div class="tiny">آخر تحديث من المصدر</div><div style="margin-top:12px;font-size:13px">'+esc(new Date(spot.updated_at).toLocaleString("ar"))+'</div></div><div><div class="tiny">سعر العرض</div><div style="margin-top:12px;font-size:13px">'+currency+'</div></div></div>'):'<div class="empty">'+(goldLoading?"جارٍ تحميل سعر الذهب العالمي…":"لم يتم تحميل سعر الذهب بعد. اضغط تحديث سعر الذهب.")+'</div>';
+  html+=spot?('<div class="grid stats"><div><div class="tiny">سعر الأونصة بالدولار</div><div class="statvalue">'+money(spot.price_usd_troy_ounce,"USD")+'</div></div><div><div class="tiny">سعر الغرام 24 بالدولار</div><div class="statvalue">'+money(Number(spot.price_usd_troy_ounce)/31.1034768,"USD")+'</div></div><div><div class="tiny">آخر تحديث من المصدر</div><div style="margin-top:12px;font-size:13px">'+esc(new Date(spot.updated_at).toLocaleString("ar"))+'</div></div><div><div class="tiny">سعر العرض</div><div style="margin-top:12px;font-size:13px">'+currency+'</div></div></div>'):'<div class="empty">'+(goldLoading?"جارٍ تحميل سعر الذهب العالمي…":goldError?"تعذر تحميل السعر: "+goldError:"لم يتم تحميل سعر الذهب بعد. اضغط تحديث سعر الذهب.")+'</div>';
   html+='<p class="tiny">السعر مرجعي للذهب الخام، ولا يشمل المصنعية أو الضريبة أو عمولة التاجر أو فرق البيع والشراء. تأكد من السعر الفعلي قبل الشراء.</p></div>';
   html+='<div class="card"><div class="cardhead"><h2>محفظة استثماراتك</h2><span class="tiny">'+items.length+' أصل</span></div>'+tableRows(items,"investments")+'</div>';
  }else if(active==="accounts"||active==="savings"||active==="debts"||active==="budgets"){
@@ -313,7 +313,7 @@ function renderPage(){
  if($("#allTransactions"))$("#allTransactions").onclick=()=>go("transactions");
  if($("#moduleAdd"))$("#moduleAdd").onclick=()=>active==="transactions"||active==="income"||active==="expenses"?openTransaction():openRecord(active);
  if($("#addGoldInvestment"))$("#addGoldInvestment").onclick=()=>openRecord("investments",null,true);
- if($("#refreshGold"))$("#refreshGold").onclick=async()=>{const b=$("#refreshGold");b.disabled=true;b.textContent="جارٍ التحديث…";try{await fetchGoldQuote();await updateGoldHoldingValues();toast("تم تحديث الذهب وقيم استثماراتك.");}catch(e){toast("تعذر تحديث الذهب: "+e.message);}finally{if($("#refreshGold")){$("#refreshGold").disabled=false;$("#refreshGold").textContent="تحديث سعر الذهب";}if(active==="investments")renderPage();}};
+ if($("#refreshGold"))$("#refreshGold").onclick=async()=>{const b=$("#refreshGold");b.disabled=true;b.textContent="جارٍ التحديث…";try{goldError=null;await fetchGoldQuote();await updateGoldHoldingValues();toast("تم تحديث الذهب وقيم استثماراتك.");}catch(e){goldError=e.message;toast("تعذر تحديث الذهب: "+e.message);}finally{if($("#refreshGold")){$("#refreshGold").disabled=false;$("#refreshGold").textContent="تحديث سعر الذهب";}if(active==="investments")renderPage();}};
  document.querySelectorAll("[data-goto]").forEach(el=>el.onclick=()=>go(el.dataset.goto));
  document.querySelectorAll("[data-edit]").forEach(el=>el.onclick=()=>el.dataset.edit==="transactions"?openTransaction(el.dataset.id):openRecord(el.dataset.edit,el.dataset.id));
  document.querySelectorAll("[data-delete]").forEach(el=>el.onclick=()=>deleteRecord(el.dataset.delete,el.dataset.id));
