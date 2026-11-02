@@ -1,6 +1,4 @@
-import os, time, re
-from datetime import datetime, timezone, timedelta
-from html import unescape as html_unescape
+import os, time
 from collections import defaultdict, deque
 from typing import Any
 import httpx
@@ -121,84 +119,6 @@ async def market_fx(base: str = "USD", quotes: str = "EUR,SAR,AED,YER"):
   raise
  except (httpx.HTTPError, ValueError, TypeError):
   raise HTTPException(503, "تعذر جلب أسعار الصرف المرجعية حاليًا.")
-
-@app.get("/api/market/aden-fx")
-async def market_aden_fx():
- cache_key = "aden-market-fx"
- cached = MARKET_CACHE.get(cache_key)
- now = time.time()
- if cached and now - cached[0] < 300:
-  return cached[1]
- source_url = "https://t.me/s/yemensul"
- try:
-  async with httpx.AsyncClient(timeout=httpx.Timeout(15, connect=6), follow_redirects=True) as client:
-   response = await client.get(source_url, headers={"Accept":"text/html","User-Agent":"Mozilla/5.0 (compatible; WALLET-OS/1.0; market-rates)"})
-   response.raise_for_status()
-  fragments = re.findall(r'<div[^>]*class=["\'][^"\']*tgme_widget_message_text[^"\']*["\'][^>]*>(.*?)</div>', response.text, re.I | re.S)
-  if not fragments:
-   raise HTTPException(503, "لم يعرض مصدر أسعار عدن منشورات قابلة للقراءة حاليًا.")
-  candidates = []
-  digit_map = str.maketrans("٠١٢٣٤٥٦٧٨٩٬٫", "0123456789,.")
-  for fragment in fragments:
-   text = re.sub(r"<br\s*/?>", "\n", fragment, flags=re.I)
-   text = re.sub(r"<[^>]+>", " ", text)
-   text = html_unescape(text).translate(digit_map)
-   text = re.sub(r"[ \t]+", " ", text)
-   aden_headers = list(re.finditer(r"بتوقيت\s*عدن", text))
-   if not aden_headers:
-    continue
-   aden_text = text[aden_headers[-1].start():]
-   aden_text = re.split(r"رابط\s*قناة", aden_text, maxsplit=1)[0]
-   def read_rate(action: str, label: str):
-    match = re.search(rf"{action}\s*(?:الريال\s*)?{label}[^\d]{{0,80}}(\d[\d,]*(?:\.\d+)?)", aden_text, re.I)
-    if not match:
-     return None
-    return float(match.group(1).replace(",", ""))
-   usd_buy = read_rate("شراء", "الدولار")
-   usd_sell = read_rate("بيع", "الدولار")
-   sar_buy = read_rate("شراء", "السعودي")
-   sar_sell = read_rate("بيع", "السعودي")
-   dates = re.findall(r"(\d{1,2}/\d{1,2}/\d{4})", text)
-   if not dates or None in (usd_buy, usd_sell, sar_buy, sar_sell):
-    continue
-   try:
-    rate_date = datetime.strptime(dates[-1], "%d/%m/%Y").date().isoformat()
-   except ValueError:
-    continue
-   if not (500 <= usd_buy <= 3000 and usd_buy <= usd_sell <= 3000 and 100 <= sar_buy <= 800 and sar_buy <= sar_sell <= 800):
-    continue
-   time_match = re.search(r"(\d{1,2}:\d{2})\s*(صباح|مساء)?", aden_text)
-   candidates.append({
-    "date": rate_date,
-    "time": ((time_match.group(1) + (" " + time_match.group(2) if time_match.group(2) else "")) if time_match else None),
-    "rates": {
-     "USD": {"buy": usd_buy, "sell": usd_sell, "mid": (usd_buy + usd_sell) / 2},
-     "SAR": {"buy": sar_buy, "sell": sar_sell, "mid": (sar_buy + sar_sell) / 2}
-    }
-   })
-  if not candidates:
-   raise HTTPException(503, "تعذر استخراج أسعار الدولار والسعودي لمدينة عدن من آخر منشورات المصدر.")
-  latest = max(candidates, key=lambda row: row["date"])
-  local_date = (datetime.now(timezone.utc) + timedelta(hours=3)).date()
-  payload = {
-   "market": "Aden",
-   "banknote_type": "new",
-   "currency": "YER",
-   "date": latest["date"],
-   "time": latest["time"],
-   "fetched_at": datetime.now(timezone.utc).isoformat(),
-   "is_stale": latest["date"] < local_date.isoformat(),
-   "rates": latest["rates"],
-   "source": "YemenSul – public Telegram channel",
-   "source_url": source_url,
-   "note": "أسعار سوقية استرشادية للأوراق النقدية الجديدة في عدن؛ قد تختلف حسب الصراف ووقت التنفيذ."
-  }
-  MARKET_CACHE[cache_key] = (now, payload)
-  return payload
- except HTTPException:
-  raise
- except (httpx.HTTPError, ValueError, TypeError):
-  raise HTTPException(503, "تعذر جلب أسعار سوق عدن حاليًا من مصدر YemenSul. حاول لاحقًا.")
 
 @app.get("/api/health")
 async def health():
