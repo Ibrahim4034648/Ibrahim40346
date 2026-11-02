@@ -1,7 +1,3 @@
-{
-  email {$ACME_EMAIL:}
-}
-
 {$OLLAMA_DOMAIN} {
   @allowed header Authorization "Bearer {$OLLAMA_API_KEY}"
 
