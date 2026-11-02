@@ -1,0 +1,20 @@
+{
+  email {$ACME_EMAIL:}
+}
+
+{$OLLAMA_DOMAIN} {
+  @allowed header Authorization "Bearer {$OLLAMA_API_KEY}"
+
+  handle /api/* {
+    handle @allowed {
+      reverse_proxy ollama:11434
+    }
+    handle {
+      respond "Unauthorized" 401
+    }
+  }
+
+  handle {
+    respond "Not found" 404
+  }
+}
