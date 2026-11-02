@@ -38,7 +38,15 @@ async def config():
 
 @app.get("/api/health")
 async def health():
- return {"ok":True,"supabase_configured":bool(SUPABASE_URL and SUPABASE_PUBLISHABLE_KEY),"ollama_configured":bool(OLLAMA_BASE_URL and OLLAMA_API_KEY),"model":OLLAMA_MODEL}
+ ollama_reachable=False
+ if OLLAMA_BASE_URL and OLLAMA_API_KEY:
+  try:
+   async with httpx.AsyncClient(timeout=httpx.Timeout(4,connect=2)) as client:
+    response=await client.get(OLLAMA_BASE_URL+"/api/tags",headers={"Authorization":"Bearer "+OLLAMA_API_KEY})
+    ollama_reachable=response.status_code==200
+  except httpx.HTTPError:
+   ollama_reachable=False
+ return {"ok":True,"supabase_configured":bool(SUPABASE_URL and SUPABASE_PUBLISHABLE_KEY),"ollama_configured":bool(OLLAMA_BASE_URL and OLLAMA_API_KEY),"ollama_reachable":ollama_reachable,"model":OLLAMA_MODEL}
 
 async def verify_user(authorization:str|None):
  if not authorization or not authorization.lower().startswith("bearer "):
