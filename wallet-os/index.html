@@ -79,7 +79,7 @@ body.light .btn.primary{color:#17140e}
 "use strict";
 const $=s=>document.querySelector(s);
 const root=$("#root");
-let supa=null,user=null,active="dashboard",currency="YER",transactions=[],accounts=[],goals=[],liabilities=[],investments=[],budgets=[],charts={};
+let supa=null,user=null,active="dashboard",currency="YER",transactions=[],accounts=[],goals=[],liabilities=[],investments=[],budgets=[],charts={},fxRates={USD:{USD:1}},fxRateDate=null,fxRateSource=null,goldQuote=null,goldLoading=false;
 const currencyNames={YER:"ريال يمني",SAR:"ريال سعودي",USD:"دولار أمريكي",AED:"درهم إماراتي"};
 const pageTitles={dashboard:"الرئيسية",transactions:"كل العمليات",income:"الدخل",expenses:"المصروفات",accounts:"الحسابات",savings:"أهداف الادخار",debts:"الالتزامات",investments:"الاستثمارات",budgets:"الميزانيات",reports:"التقارير",assistant:"المساعد الذكي",settings:"الإعدادات"};
 const nav=[["dashboard","▦","الرئيسية"],["transactions","⇄","كل العمليات"],["income","↗","الدخل"],["expenses","↘","المصروفات"],["accounts","▤","الحسابات"],["savings","◎","الادخار"],["debts","◈","الالتزامات"],["investments","⌁","الاستثمارات"],["budgets","◫","الميزانيات"],["reports","▥","التقارير"],["assistant","✳","المساعد الذكي"],["settings","⚙","الإعدادات"]];
@@ -118,21 +118,31 @@ function renderAuth(mode){
  function notice(msg){const n=$("#authNotice");n.textContent=msg;n.style.display="block";}
 }
 function destroyCharts(){Object.values(charts).forEach(c=>{try{c.destroy();}catch(e){}});charts={};}
-function sum(type,yearOnly=false){return transactions.filter(t=>t.type===type&&t.currency===currency&&(!yearOnly||String(t.transaction_date).startsWith(String(new Date().getFullYear())))).reduce((s,t)=>s+Number(t.amount),0);}
+function fxRate(from,to){
+ from=String(from||"").trim();to=String(to||"").trim();
+ if(!from||!to)return null;if(from===to)return 1;
+ const fromPerUsd=Number(fxRates.USD?.[from]),toPerUsd=Number(fxRates.USD?.[to]);
+ return fromPerUsd>0&&toPerUsd>0?toPerUsd/fromPerUsd:null;
+}
+function convertAmount(amount,from,to){const rate=fxRate(from,to);return rate===null?null:Number(amount)*rate;}
+function sum(type,yearOnly=false){return transactions.filter(t=>t.type===type&&(!yearOnly||String(t.transaction_date).startsWith(String(new Date().getFullYear())))).reduce((s,t)=>{const converted=convertAmount(t.amount,t.currency,currency);return s+(converted===null?0:converted);},0);}
 async function loadData(){
- const [profile,tx,ac,go,li,iv,bu]=await Promise.all([
+ const [profile,tx,ac,go,li,iv,bu,fx]=await Promise.all([
   supa.from("profiles").select("*").eq("id",user.id).maybeSingle(),
   supa.from("transactions").select("*").order("transaction_date",{ascending:false}),
   supa.from("accounts").select("*").order("created_at",{ascending:false}),
   supa.from("savings_goals").select("*").order("created_at",{ascending:false}),
   supa.from("liabilities").select("*").order("created_at",{ascending:false}),
   supa.from("investments").select("*").order("created_at",{ascending:false}),
-  supa.from("budgets").select("*").order("created_at",{ascending:false})
+  supa.from("budgets").select("*").order("created_at",{ascending:false}),
+  supa.from("exchange_rates").select("*").eq("base_currency","USD").order("rate_date",{ascending:false})
  ]);
- for(const x of [profile,tx,ac,go,li,iv,bu])if(x.error)throw x.error;
+ for(const x of [profile,tx,ac,go,li,iv,bu,fx])if(x.error)throw x.error;
  if(!profile.data){const p=await supa.from("profiles").insert({id:user.id,base_currency:"YER",preferred_language:"ar",theme:"dark"});if(p.error)throw p.error;currency="YER";}
  else currency=profile.data.base_currency||"YER";
  transactions=tx.data||[];accounts=ac.data||[];goals=go.data||[];liabilities=li.data||[];investments=iv.data||[];budgets=bu.data||[];
+ fxRates={USD:{USD:1}};fxRateDate=null;fxRateSource=null;
+ for(const row of fx.data||[]){const quote=String(row.quote_currency||"").trim();if(quote&&!fxRates.USD[quote])fxRates.USD[quote]=Number(row.rate);if(!fxRateDate||row.rate_date>fxRateDate){fxRateDate=row.rate_date;fxRateSource=row.source;}}
 }
 async function enterApp(){try{await loadData();renderApp();}catch(e){renderLanding();toast("تعذر تحميل بيانات الحساب: "+e.message);}}
 function renderApp(){
@@ -244,7 +254,7 @@ function renderPage(){
 }
 function makeYearChart(id){
  const year=new Date().getFullYear(),months=["يناير","فبراير","مارس","أبريل","مايو","يونيو","يوليو","أغسطس","سبتمبر","أكتوبر","نوفمبر","ديسمبر"];
- const values=type=>months.map((_,m)=>transactions.filter(t=>t.type===type&&t.currency===currency&&String(t.transaction_date).startsWith(String(year))&&Number(t.transaction_date.slice(5,7))===m+1).reduce((s,t)=>s+Number(t.amount),0));
+ const values=type=>months.map((_,m)=>transactions.filter(t=>t.type===type&&String(t.transaction_date).startsWith(String(year))&&Number(t.transaction_date.slice(5,7))===m+1).reduce((s,t)=>{const amount=convertAmount(t.amount,t.currency,currency);return s+(amount===null?0:amount);},0));
  const income=values("income"),expense=values("expense");
  const ctx=$("#"+id);if(!ctx)return;
  const textColor=getComputedStyle(document.body).getPropertyValue("--muted")||"#999";
