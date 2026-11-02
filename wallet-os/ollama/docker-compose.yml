@@ -1,0 +1,46 @@
+services:
+  ollama:
+    image: ollama/ollama:latest
+    container_name: wallet-os-ollama
+    restart: unless-stopped
+    volumes:
+      - ollama_data:/root/.ollama
+    networks:
+      - ai_internal
+    healthcheck:
+      test: ["CMD", "ollama", "list"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 20s
+
+  caddy:
+    image: caddy:2
+    container_name: wallet-os-ollama-gateway
+    restart: unless-stopped
+    depends_on:
+      ollama:
+        condition: service_healthy
+    environment:
+      OLLAMA_DOMAIN: ${OLLAMA_DOMAIN:?Set OLLAMA_DOMAIN in .env}
+      OLLAMA_API_KEY: ${OLLAMA_API_KEY:?Set OLLAMA_API_KEY in .env}
+      ACME_EMAIL: ${ACME_EMAIL:-}
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    networks:
+      - ai_internal
+
+networks:
+  ai_internal:
+    driver: bridge
+
+volumes:
+  ollama_data:
+  caddy_data:
+  caddy_config:
