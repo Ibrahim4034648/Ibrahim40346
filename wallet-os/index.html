@@ -135,7 +135,7 @@ function tableRows(items,kind){
    const diff=Number(t.current_value)-Number(t.invested_amount);
    cells='<td>'+esc(t.name)+'</td><td>'+esc(t.asset_type||"—")+'</td><td>'+money(t.invested_amount,t.currency)+'</td><td>'+money(t.current_value,t.currency)+'</td><td class="'+(diff>=0?"positive":"negative")+'">'+money(diff,t.currency)+'</td>';
   }else{
-   const spent=transactions.filter(x=>x.type==="expense"&&x.currency===t.currency&&x.category===t.category&&samePeriod(x.transaction_date,t.period)).reduce((s,x)=>s+Number(x.amount),0);
+   const spent=transactions.filter(x=>x.type==="expense"&&x.currency===t.currency&&(t.category==="*"||x.category===t.category)&&samePeriod(x.transaction_date,t.period)).reduce((s,x)=>s+Number(x.amount),0);
    cells='<td>'+esc(t.name)+'</td><td>'+esc(t.category)+'</td><td>'+money(t.amount,t.currency)+'</td><td>'+esc(({weekly:"أسبوعية",monthly:"شهرية",yearly:"سنوية"})[t.period]||t.period)+'</td><td>'+money(spent,t.currency)+'</td>';
   }
   return '<tr>'+cells+'<td><button class="btn small" data-edit="'+kind+'" data-id="'+t.id+'">تعديل</button> <button class="btn small" data-delete="'+kind+'" data-id="'+t.id+'">حذف</button></td></tr>';
@@ -145,8 +145,9 @@ function tableRows(items,kind){
 function samePeriod(date,period){
  const d=new Date(date+"T12:00:00"),now=new Date();
  if(period==="yearly")return d.getFullYear()===now.getFullYear();
- if(period==="weekly"){const start=new Date(now);start.setDate(now.getDate()-((now.getDay()+6)%7));start.setHours(0,0,0,0);return d>=start;}
- return date.slice(0,7)===now.toISOString().slice(0,7);
+ if(period==="weekly"){const start=new Date(now);start.setDate(now.getDate()-((now.getDay()+6)%7));start.setHours(0,0,0,0);const end=new Date(start);end.setDate(start.getDate()+7);return d>=start&&d<end;}
+ const currentMonth=now.getFullYear()+"-"+String(now.getMonth()+1).padStart(2,"0");
+ return date.slice(0,7)===currentMonth;
 }
 function renderPage(){
  destroyCharts();
