@@ -315,7 +315,7 @@ function tableRows(items,kind){
  else if(kind==="accounts")html+='<th>الحساب</th><th>النوع</th><th>الرصيد الافتتاحي</th><th>الرصيد الحالي</th>';
  else if(kind==="savings")html+='<th>الهدف</th><th>المستهدف</th><th>المدخر</th><th>الإنجاز</th><th>التاريخ</th>';
  else if(kind==="debts")html+='<th>الالتزام</th><th>الأصلي</th><th>المتبقي</th><th>الاستحقاق</th>';
- else if(kind==="investments")html+='<th>الأصل</th><th>النوع</th><th>الوزن والعيار</th><th>تكلفة الشراء</th><th>القيمة الحالية</th><th>الفرق</th>';
+ else if(kind==="investments")html+='<th>الأصل</th><th>الفئة / الرمز</th><th>الكمية</th><th>مبلغ الشراء</th><th>سعر الوحدة عند الشراء</th><th>القيمة السوقية</th><th>سعر السوق الحالي</th><th>الربح / الخسارة</th><th>تحديث السعر</th>';
  else if(kind==="budgets")html+='<th>الميزانية</th><th>التصنيف</th><th>الحد</th><th>الفترة</th><th>مصروف الفترة</th>';
  html+='<th>إجراء</th></tr></thead><tbody>';
  html+=items.map(t=>{
@@ -333,9 +333,10 @@ function tableRows(items,kind){
   }else if(kind==="debts"){
    cells='<td>'+esc(t.name)+'</td><td>'+money(t.original_amount,t.currency)+'</td><td class="negative">'+money(t.remaining_amount,t.currency)+'</td><td>'+esc(t.due_date||"—")+'</td>';
   }else if(kind==="investments"){
-   const meta=t.metadata||{},isGold=t.asset_type==="gold",current=isGold?goldHoldingValue(t):Number(t.current_value),diff=current-Number(t.invested_amount);
-   const details=isGold?((Number(meta.weight_grams)||0)+" غ · عيار "+(Number(meta.karat)||24)):"—";
-   cells='<td>'+esc(t.name)+'</td><td>'+(isGold?'<span class="pill">ذهب XAU</span>':esc(t.asset_type||"أصل آخر"))+'</td><td>'+esc(details)+'</td><td>'+money(t.invested_amount,t.currency)+'</td><td>'+money(current,t.currency)+'</td><td class="'+(diff>=0?"positive":"negative")+'">'+money(diff,t.currency)+'</td>';
+   const meta=t.metadata||{},type=t.asset_type||"other",symbol=investmentSymbol(type,meta)||"—",qty=investmentQuantity(t),current=investmentMarketValue(t),diff=(current===null?null:Number(current)-Number(t.invested_amount));
+   const unit=investmentUnitLabel(type),buyUnit=Number(meta.purchase_unit_price),marketUnit=Number(meta.market_unit_price),marketCurrency=meta.market_currency||"USD",updated=meta.market_updated_at?new Date(meta.market_updated_at).toLocaleString("ar-YE",{dateStyle:"short",timeStyle:"short"}):"—";
+   const quantityText=qty>0?(money(qty,"")+" "+unit):"—",typeText=investmentTypeLabels[type]||type;
+   cells='<td>'+esc(t.name)+'</td><td><span class="pill">'+esc(typeText)+'</span><div class="tiny">'+esc(symbol)+'</div></td><td>'+esc(quantityText)+'</td><td>'+money(t.invested_amount,t.currency)+'</td><td>'+(buyUnit>0?money(buyUnit,t.currency)+" / "+unit:"—")+'</td><td>'+(current===null?"—":money(current,t.currency))+'</td><td>'+(marketUnit>0?money(marketUnit,marketCurrency)+" / "+unit:"—")+'</td><td class="'+(diff===null?"":diff>=0?"positive":"negative")+'">'+(diff===null?"—":money(diff,t.currency))+'</td><td class="tiny">'+esc(updated)+'</td>';
   }else{
    const spent=transactions.filter(x=>x.type==="expense"&&x.currency===t.currency&&(t.category==="*"||x.category===t.category)&&samePeriod(x.transaction_date,t.period)).reduce((s,x)=>s+Number(x.amount),0);
    cells='<td>'+esc(t.name)+'</td><td>'+esc(t.category)+'</td><td>'+money(t.amount,t.currency)+'</td><td>'+esc(({weekly:"أسبوعية",monthly:"شهرية",yearly:"سنوية"})[t.period]||t.period)+'</td><td>'+money(spent,t.currency)+'</td>';
@@ -371,13 +372,23 @@ function renderPage(){
   const convertedExpense=items.filter(t=>t.type==="expense").reduce((s,t)=>{const amount=convertAmount(t.amount,t.currency,currency);return s+(amount===null?0:amount);},0);
   html+='<div class="grid stats">'+stat("عدد العمليات",items.length,"نتائج السجل","")+stat("الإجمالي",money(convertedTotal,currency),currency,"")+stat("الدخل",money(convertedIncome,currency),currency,"positive")+stat("المصروفات",money(convertedExpense,currency),currency,"negative")+'</div><div class="card"><div class="cardhead"><h2>سجل العمليات</h2><span class="tiny">الأحدث أولًا · القيم الأصلية محفوظة</span></div>'+tableRows(items,"transactions")+'</div>';
  }else if(active==="investments"){
-  const items=investments,spot=goldQuote,px24=goldGramPrice(24,currency),px22=goldGramPrice(22,currency),px21=goldGramPrice(21,currency),px18=goldGramPrice(18,currency);
-  html=pageHeader("سجل مشترياتك من الذهب والأصول، وقارن تكلفة الشراء بالقيمة المرجعية المحسوبة من السعر العالمي.",'<button class="btn primary" id="addGoldInvestment">＋ إضافة استثمار ذهب</button> <button class="btn" id="moduleAdd">＋ أصل آخر</button>');
-  html+='<div class="grid stats">'+stat("ذهب 24 قيراط / غرام",px24===null?"—":money(px24,currency),"سعر مرجعي مشتق من XAU/USD","")+stat("ذهب 22 قيراط / غرام",px22===null?"—":money(px22,currency),"قيمة المعدن دون مصنعية","")+stat("ذهب 21 قيراط / غرام",px21===null?"—":money(px21,currency),"قيمة المعدن دون مصنعية","")+stat("ذهب 18 قيراط / غرام",px18===null?"—":money(px18,currency),"قيمة المعدن دون مصنعية","")+'</div>';
-  html+='<div class="card" style="margin-bottom:16px"><div class="cardhead"><div><h2>السعر العالمي للذهب XAU</h2><p class="tiny">السعر الفوري بالدولار للأونصة الترويسية · المصدر: Gold API</p></div><button class="btn small" id="refreshGold">تحديث سعر الذهب</button></div>';
-  html+=spot?('<div class="grid stats"><div><div class="tiny">سعر الأونصة بالدولار</div><div class="statvalue">'+money(spot.price_usd_troy_ounce,"USD")+'</div></div><div><div class="tiny">سعر الغرام 24 بالدولار</div><div class="statvalue">'+money(Number(spot.price_usd_troy_ounce)/31.1034768,"USD")+'</div></div><div><div class="tiny">آخر تحديث من المصدر</div><div style="margin-top:12px;font-size:13px">'+esc(new Date(spot.updated_at).toLocaleString("ar"))+'</div></div><div><div class="tiny">سعر العرض</div><div style="margin-top:12px;font-size:13px">'+currency+'</div></div></div>'):'<div class="empty">'+(goldLoading?"جارٍ تحميل سعر الذهب العالمي…":goldError?"تعذر تحميل السعر: "+goldError:"لم يتم تحميل سعر الذهب بعد. اضغط تحديث سعر الذهب.")+'</div>';
-  html+='<p class="tiny">السعر مرجعي للذهب الخام، ولا يشمل المصنعية أو الضريبة أو عمولة التاجر أو فرق البيع والشراء. تأكد من السعر الفعلي قبل الشراء.</p></div>';
-  html+='<div class="card"><div class="cardhead"><h2>محفظة استثماراتك</h2><span class="tiny">'+items.length+' أصل</span></div>'+tableRows(items,"investments")+'</div>';
+  const items=investments;
+  const summaryRows=items.map(item=>({item,cost:convertAmount(item.invested_amount,item.currency,currency),value:(()=>{const v=investmentMarketValue(item);return v===null?null:convertAmount(v,item.currency,currency);})()}));
+  const totalCost=summaryRows.reduce((s,x)=>s+(x.cost===null?0:x.cost),0);
+  const totalValue=summaryRows.reduce((s,x)=>s+(x.value===null?0:x.value),0);
+  const comparable=summaryRows.filter(x=>x.cost!==null&&x.value!==null).length;
+  const excluded=items.length-comparable,pnl=totalValue-totalCost,margin=totalCost>0?pnl/totalCost*100:0;
+  const pnlClass=pnl>0?"positive":pnl<0?"negative":"";
+  const pnlTone=pnl>0?"profit":pnl<0?"loss":"neutral";
+  html=pageHeader("محفظة الأصول والأسهم: قيمة السوق، تكلفة الشراء، الكميات، والربح أو الخسارة لكل دفعة.",'<button class="btn primary" id="moduleAdd">＋ إضافة استثمار</button> <button class="btn" id="refreshInvestmentMarkets">↻ تحديث أسعار السوق</button>');
+  html+='<div class="grid stats investment-summary">'+stat("إجمالي القيمة السوقية",money(totalValue,currency),comparable+" دفعة قابلة للتقييم","")+
+   stat("إجمالي تكلفة الشراء",money(totalCost,currency),"رأس المال الذي أضفته للأصول","")+
+   '<div class="card investment-pnl-card '+pnlTone+'"><div class="statlabel">صافي الربح / الخسارة <span>◈</span></div><div class="statvalue '+pnlClass+'">'+(pnl>0?"+":"")+money(pnl,currency)+'</div><div class="tiny '+pnlClass+'">'+(pnl>0?"هامش ربح ":pnl<0?"هامش خسارة ":"دون تغير ")+Math.abs(margin).toFixed(2)+'%</div></div></div>';
+  html+='<div class="card investment-chart-card"><div class="cardhead"><div><h2>مقارنة تكلفة الشراء بالقيمة السوقية</h2><p class="tiny">كل عمود يمثل دفعة شراء مسجلة · العملة المعروضة: '+currency+'</p></div><span class="tiny">'+items.length+' دفعة شراء</span></div><div class="investment-chart-wrap">'+(items.length?'<canvas id="investmentChart"></canvas>':noRows("أضف أول استثمار لعرض مقارنة الشراء بالقيمة السوقية."))+'</div></div>';
+  html+='<div class="card investment-holdings"><div class="cardhead"><div><h2>تفاصيل المشتريات والأصول</h2><p class="tiny">الكمية، مبلغ الشراء، سعر الوحدة، قيمة السوق، والفرق لكل إضافة</p></div><span class="tiny">'+items.length+' دفعة</span></div>'+tableRows(items,"investments")+'</div>';
+  html+='<p class="tiny investment-footnote">أسعار الذهب والفضة والنحاس والعملات الرقمية من Gold API، وقد تتأخر بيانات الأسهم لدى Yahoo Finance. التحويل بين العملات يعتمد أسعار الصرف المحفوظة؛ أي أصل لا تتوفر له عملة تحويل يُستبعد من الإجمالي ويظل ظاهرًا في الجدول. الأسعار استرشادية وليست سعر تنفيذ أو توصية استثمارية.'+(excluded?' لم تُدرج '+excluded+' دفعة في الإجمالي لعدم توفر تحويل عملة أو قيمة سوقية صالحة.':"")+'</p>';
+  if(investmentQuoteLoading)html+='<div class="tiny" style="margin-top:10px">جارٍ تحديث الأسعار العالمية وحساب قيم المحفظة…</div>';
+  if(investmentQuoteError)html+='<div class="tiny negative" style="margin-top:10px">تعذر تحديث بعض الأسعار: '+esc(investmentQuoteError)+'</div>';
  }else if(active==="accounts"||active==="savings"||active==="debts"||active==="budgets"){
   const cfg=modules[active],items=moduleItems(active);
   html=pageHeader(cfg.desc,'<button class="btn primary" id="moduleAdd">＋ إضافة '+cfg.title+'</button>');
@@ -399,8 +410,7 @@ function renderPage(){
  if($("#addAccount"))$("#addAccount").onclick=()=>openRecord("accounts");
  if($("#allTransactions"))$("#allTransactions").onclick=()=>go("transactions");
  if($("#moduleAdd"))$("#moduleAdd").onclick=()=>active==="transactions"||active==="income"||active==="expenses"?openTransaction():openRecord(active);
- if($("#addGoldInvestment"))$("#addGoldInvestment").onclick=()=>openRecord("investments",null,true);
- if($("#refreshGold"))$("#refreshGold").onclick=async()=>{const b=$("#refreshGold");b.disabled=true;b.textContent="جارٍ التحديث…";try{goldError=null;await fetchGoldQuote();await updateGoldHoldingValues();toast("تم تحديث الذهب وقيم استثماراتك.");}catch(e){goldError=e.message;toast("تعذر تحديث الذهب: "+e.message);}finally{if($("#refreshGold")){$("#refreshGold").disabled=false;$("#refreshGold").textContent="تحديث سعر الذهب";}if(active==="investments")renderPage();}};
+ if($("#refreshInvestmentMarkets"))$("#refreshInvestmentMarkets").onclick=async()=>{investmentQuoteLoadedAt=0;const b=$("#refreshInvestmentMarkets");b.disabled=true;b.textContent="جارٍ التحديث…";await refreshInvestmentQuotes();if($("#refreshInvestmentMarkets")){$("#refreshInvestmentMarkets").disabled=false;$("#refreshInvestmentMarkets").textContent="↻ تحديث أسعار السوق";}toast(investmentQuoteError?"تم التحديث مع تعذر بعض الأسعار.":"تم تحديث قيم المحفظة من أسعار السوق.");};
  document.querySelectorAll("[data-goto]").forEach(el=>el.onclick=()=>go(el.dataset.goto));
  document.querySelectorAll("[data-edit]").forEach(el=>el.onclick=()=>el.dataset.edit==="transactions"?openTransaction(el.dataset.id):openRecord(el.dataset.edit,el.dataset.id));
  document.querySelectorAll("[data-delete]").forEach(el=>el.onclick=()=>deleteRecord(el.dataset.delete,el.dataset.id));
@@ -414,6 +424,7 @@ function renderPage(){
  if($("#yearChart"))makeYearChart("yearChart");
  if($("#mixChart"))makeMixChart();
  if($("#reportChart"))makeYearChart("reportChart");
+  if($("#investmentChart"))makeInvestmentChart();
 }
 function makeYearChart(id){
  const year=new Date().getFullYear(),months=["يناير","فبراير","مارس","أبريل","مايو","يونيو","يوليو","أغسطس","سبتمبر","أكتوبر","نوفمبر","ديسمبر"];
@@ -426,6 +437,16 @@ function makeYearChart(id){
 function makeMixChart(){
  const ctx=$("#mixChart");if(!ctx)return;
  charts.mix=new Chart(ctx,{type:"doughnut",data:{labels:["الدخل","المصروفات"],datasets:[{data:[sum("income"),sum("expense")],backgroundColor:["#d3b16b","#8b9294"],borderWidth:0,hoverOffset:7}]},options:{responsive:true,maintainAspectRatio:false,cutout:"72%",plugins:{legend:{position:"bottom",labels:{color:"#a5a7a6",usePointStyle:true,boxWidth:8,padding:18,font:{family:"IBM Plex Sans Arabic"}}}}}});
+}
+function makeInvestmentChart(){
+ const rows=investments.map(item=>({item,cost:convertAmount(item.invested_amount,item.currency,currency),value:(()=>{const v=investmentMarketValue(item);return v===null?null:convertAmount(v,item.currency,currency);})()})).filter(x=>x.cost!==null&&x.value!==null);
+ const ctx=$("#investmentChart");if(!ctx||!rows.length)return;
+ const textColor=getComputedStyle(document.body).getPropertyValue("--muted")||"#999";
+ const positive=rows.reduce((s,x)=>s+x.value-x.cost,0)>=0;
+ charts.investment=new Chart(ctx,{type:"bar",data:{labels:rows.map(x=>x.item.name+(x.item.metadata?.purchase_date?" · "+x.item.metadata.purchase_date:"")),datasets:[
+  {label:"مبلغ الشراء",data:rows.map(x=>x.cost),backgroundColor:"#c5a15c",borderRadius:6},
+  {label:"القيمة السوقية",data:rows.map(x=>x.value),backgroundColor:positive?"#32965b":"#c84b46",borderRadius:6}
+ ]},options:{indexAxis:"y",responsive:true,maintainAspectRatio:false,plugins:{legend:{labels:{color:textColor,usePointStyle:true,boxWidth:8,font:{family:"IBM Plex Sans Arabic"}}},tooltip:{callbacks:{label:c=>c.dataset.label+": "+money(c.raw,currency)}}},scales:{x:{grid:{color:"#ffffff12"},ticks:{color:textColor}},y:{grid:{display:false},ticks:{color:textColor,font:{family:"IBM Plex Sans Arabic"}}}}}});
 }
 function openTransaction(id){
  const item=id?transactions.find(t=>t.id===id):null;
