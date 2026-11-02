@@ -176,7 +176,18 @@ async def chat(req:ChatRequest,authorization:str|None=Header(default=None)):
  try:
   async with httpx.AsyncClient(timeout=httpx.Timeout(180,connect=10)) as c:
    r=await c.post(OLLAMA_BASE_URL+"/api/chat",headers={"Authorization":"Bearer "+OLLAMA_API_KEY,"Content-Type":"application/json"},json={"model":OLLAMA_MODEL,"stream":False,"messages":[{"role":"system","content":system+"\nFinancial data (sanitized): "+__import__("json").dumps(safe_context,ensure_ascii=False)},{"role":"user","content":req.message}]})
-  if r.status_code>=400: raise HTTPException(502,"فشل نموذج Ollama في معالجة الطلب.")
+  if r.status_code==402:
+   raise HTTPException(402,"رفضت Ollama تنفيذ الطلب بسبب حالة الاستخدام أو الفوترة (HTTP 402). افتح https://ollama.com/settings لمراجعة استخدام حسابك وحدود الخطة. قد تكون حصة الاستخدام المجانية للجلسة أو الأسبوع قد استُهلكت؛ انتظر إعادة ضبطها أو راجع خيارات حسابك. لا حاجة إلى إنشاء مفتاح جديد ما دام فحص الاتصال ناجحًا.")
+  if r.status_code==401:
+   raise HTTPException(502,"رفضت Ollama مفتاح API (HTTP 401). تحقق من المفتاح المحفوظ في Vercel.")
+  if r.status_code==403:
+   raise HTTPException(502,"حساب Ollama غير مخوّل لاستخدام هذا النموذج (HTTP 403). راجع صلاحيات النموذج والخطة.")
+  if r.status_code==404:
+   raise HTTPException(502,"النموذج المحدد غير متاح لخدمة Ollama (HTTP 404). تحقق من اسم النموذج في إعدادات Vercel.")
+  if r.status_code==429:
+   raise HTTPException(429,"وصلت إلى حد الطلبات المؤقت في Ollama (HTTP 429). انتظر قليلًا ثم حاول مجددًا.")
+  if r.status_code>=400:
+   raise HTTPException(502,"أعادت خدمة Ollama خطأ HTTP "+str(r.status_code)+". حاول مجددًا لاحقًا.")
   data=r.json(); answer=(data.get("message") or {}).get("content","").strip()
   if not answer: raise HTTPException(502,"لم يُرجع النموذج إجابة.")
   return {"ok":True,"model":OLLAMA_MODEL,"content":answer}
