@@ -442,8 +442,8 @@ async function checkAgentStatus(){
  const badge=$("#agentStatus");if(badge)badge.textContent="جارٍ فحص اتصال Ollama…";
  try{
   const response=await fetch("/api/health",{cache:"no-store"}),data=await response.json();
-  const ready=Boolean(response.ok&&data.ollama_reachable);
-  if(badge){badge.textContent=ready?"متصل · "+(data.model||"Ollama"):"غير متصل · لم يتم إعداد خادم Ollama دائم";badge.style.color=ready?"#27834a":"#b46a32";}
+  const ready=Boolean(response.ok&&data.ollama_reachable&&data.model_available);
+  if(badge){badge.textContent=ready?"متصل والنموذج جاهز · "+(data.model||"Ollama"):data.ollama_reachable?"خادم Ollama يعمل لكن النموذج "+(data.model||"المحدد")+" غير موجود عليه":"غير متصل · لم يتم إعداد خادم Ollama دائم";badge.style.color=ready?"#27834a":"#b46a32";}
   return ready;
  }catch(error){if(badge){badge.textContent="تعذر فحص خدمة Ollama";badge.style.color="#b46a32";}return false;}
 }
