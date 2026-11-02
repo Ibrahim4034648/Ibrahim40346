@@ -40,7 +40,7 @@ debts:{table:"liabilities",title:"الالتزامات",desc:"سجّل القر�
 investments:{table:"investments",title:"الاستثمارات",desc:"وثّق الأصول والمبلغ المستثمر والقيمة الحالية لكل أصل.",icon:"⌁",fields:[["name","اسم الأصل","text"],["asset_type","نوع الأصل","text"],["invested_amount","المبلغ المستثمر","number"],["current_value","القيمة الحالية","number"],["currency","العملة","currency"]]},
 budgets:{table:"budgets",title:"الميزانيات",desc:"أنشئ حدود إنفاق أسبوعية أو شهرية أو سنوية حسب التصنيف.",icon:"◫",fields:[["name","اسم الميزانية","text"],["category","التصنيف","text"],["amount","حد الميزانية","number"],["currency","العملة","currency"],["period","الفترة","select",["weekly:أسبوعية","monthly:شهرية","yearly:سنوية"]]]}
 };
-const tableState={accounts:"accounts",savings:"goals",debts:"liabilities",investments:"investments",budgets:"budgets"};
+function moduleItems(kind){return kind==="accounts"?accounts:kind==="savings"?goals:kind==="debts"?liabilities:kind==="investments"?investments:kind==="budgets"?budgets:[];}
 function esc(v){return String(v??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));}
 function currencyOptions(selected){return ["YER","SAR","USD","AED"].map(c=>"<option value='"+c+"' "+(selected===c?"selected":"")+">"+c+"</option>").join("");}
 function money(n,c){return new Intl.NumberFormat("ar-YE",{maximumFractionDigits:2}).format(Number(n)||0)+" "+(c||currency);}
@@ -164,7 +164,7 @@ function renderPage(){
   html=pageHeader(active==="income"?"سجل جميع مصادر الدخل المسجلة.":active==="expenses"?"راجع مصروفاتك وتصنيفاتها.":"جميع العمليات المالية المسجلة في حسابك.",'<button class="btn primary" id="moduleAdd">＋ إضافة عملية</button>');
   html+='<div class="grid stats">'+stat("عدد العمليات",items.length,"نتائج السجل","")+stat("الإجمالي",money(items.filter(t=>t.currency===currency).reduce((s,t)=>s+Number(t.amount),0)),currency,"")+stat("الدخل",money(items.filter(t=>t.type==="income"&&t.currency===currency).reduce((s,t)=>s+Number(t.amount),0)),currency,"positive")+stat("المصروفات",money(items.filter(t=>t.type==="expense"&&t.currency===currency).reduce((s,t)=>s+Number(t.amount),0)),currency,"negative")+'</div><div class="card"><div class="cardhead"><h2>سجل العمليات</h2><span class="tiny">الأحدث أولًا · القيم الأصلية محفوظة</span></div>'+tableRows(items,"transactions")+'</div>';
  }else if(active==="accounts"||active==="savings"||active==="debts"||active==="investments"||active==="budgets"){
-  const cfg=modules[active],items=window[tableState[active]];
+  const cfg=modules[active],items=moduleItems(active);
   html=pageHeader(cfg.desc,'<button class="btn primary" id="moduleAdd">＋ إضافة '+cfg.title+'</button>');
   html+='<div class="card"><div class="cardhead"><h2>'+cfg.title+'</h2><span class="tiny">'+items.length+' سجل</span></div>'+tableRows(items,active)+'</div>';
  }else if(active==="reports"){
@@ -247,7 +247,7 @@ function fieldHTML(field,item){
  return '<label class="fieldlabel">'+label+'<input class="field" id="f_'+key+'" type="'+type+'" '+(type==="number"?'min="0" step="0.01"':"")+' value="'+esc(val)+'" '+(key==="name"?"required":"")+'></label>';
 }
 function openRecord(kind,id){
- const cfg=modules[kind],table=cfg.table,items=window[tableState[kind]],item=id?items.find(x=>x.id===id):null;
+ const cfg=modules[kind],table=cfg.table,items=moduleItems(kind),item=id?items.find(x=>x.id===id):null;
  $("#modalTitle").textContent=(item?"تعديل ":"إضافة ")+cfg.title;
  $("#formFields").innerHTML=cfg.fields.map(f=>fieldHTML(f,item)).join("");
  $("#modal").classList.remove("hidden");
@@ -264,7 +264,7 @@ function openRecord(kind,id){
  };
 }
 async function deleteRecord(kind,id){
- const map={transactions:"transactions",accounts:"accounts",savings:"savings_goals",debts:"liabilities",investments:"investments",budgets:"budgets"},table=map[kind],state=kind==="transactions"?transactions:window[tableState[kind]];
+ const map={transactions:"transactions",accounts:"accounts",savings:"savings_goals",debts:"liabilities",investments:"investments",budgets:"budgets"},table=map[kind],state=kind==="transactions"?transactions:moduleItems(kind);
  if(!confirm("هل تريد حذف هذا السجل؟"))return;
  const r=await supa.from(table).delete().eq("id",id).eq("user_id",user.id);
  if(r.error){toast(r.error.message);return;}
