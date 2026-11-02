@@ -139,7 +139,7 @@ async function refreshAdenFxRates(){
  finally{
   adenFxLoading=false;
   if(button){button.disabled=false;button.textContent="تحديث أسعار عدن";}
-  if(active==="settings")renderPage();
+  if(user&&active!=="assistant"){const modal=$("#modal");if(!modal||modal.classList.contains("hidden"))renderPage();}
  }
 }
 async function saveManualFxRates(){
