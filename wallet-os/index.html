@@ -93,6 +93,66 @@ budgets:{table:"budgets",title:"الميزانيات",desc:"أنشئ حدود إ
 function moduleItems(kind){return kind==="accounts"?accounts:kind==="savings"?goals:kind==="debts"?liabilities:kind==="investments"?investments:kind==="budgets"?budgets:[];}
 function esc(v){return String(v??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));}
 function currencyOptions(selected){return ["YER","SAR","USD","AED"].map(c=>"<option value='"+c+"' "+(selected===c?"selected":"")+">"+c+"</option>").join("");}
+async function refreshFxRates(){
+ const button=$("#refreshFx");if(button){button.disabled=true;button.textContent="جارٍ تحديث الأسعار…";}
+ try{
+  const response=await fetch("/api/market/fx?base=USD&quotes=EUR,SAR,AED,YER",{cache:"no-store"});
+  const data=await response.json();if(!response.ok)throw new Error(data.detail||"تعذر جلب أسعار الصرف");
+  const date=data.date||new Date().toISOString().slice(0,10),rows=[];
+  for(const quote of ["YER","SAR","AED","EUR"]){
+   const rate=Number(data.rates?.[quote]);if(rate>0)rows.push({user_id:user.id,base_currency:"USD",quote_currency:quote,rate,rate_date:date,source:"Frankfurter"});
+  }
+  if(!rows.length)throw new Error("لم تصل أسعار عملات صالحة من المصدر.");
+  const saved=await supa.from("exchange_rates").upsert(rows,{onConflict:"user_id,base_currency,quote_currency,rate_date"});
+  if(saved.error)throw saved.error;
+  fxRates={USD:{USD:1}};for(const row of rows)fxRates.USD[row.quote_currency]=Number(row.rate);
+  fxRateDate=date;fxRateSource="Frankfurter";
+  toast("تم تحديث أسعار الصرف بتاريخ "+date);renderPage();
+ }catch(error){toast("لم يتم تحديث أسعار الصرف: "+error.message);}
+ finally{if(button){button.disabled=false;button.textContent="تحديث الأسعار المرجعية";}}
+}
+async function saveManualFxRates(){
+ const today=new Date().toISOString().slice(0,10),rows=[];
+ for(const quote of ["YER","SAR","AED","EUR"]){
+  const input=$("#fx_"+quote);if(!input)continue;
+  const rate=Number(input.value);if(rate>0)rows.push({user_id:user.id,base_currency:"USD",quote_currency:quote,rate,rate_date:today,source:"Manual override"});
+ }
+ if(!rows.length){toast("أدخل سعرًا صحيحًا لعملة واحدة على الأقل.");return;}
+ const result=await supa.from("exchange_rates").upsert(rows,{onConflict:"user_id,base_currency,quote_currency,rate_date"});
+ if(result.error){toast("تعذر حفظ أسعار الصرف: "+result.error.message);return;}
+ for(const row of rows)fxRates.USD[row.quote_currency]=Number(row.rate);
+ fxRateDate=today;fxRateSource="Manual override";
+ toast("تم حفظ أسعار الصرف اليدوية بتاريخ "+today);renderPage();
+}
+async function fetchGoldQuote(){
+ const response=await fetch("/api/market/gold",{cache:"no-store"});
+ const data=await response.json();if(!response.ok)throw new Error(data.detail||"تعذر جلب سعر الذهب");
+ if(!(Number(data.price_usd_troy_ounce)>0))throw new Error("سعر الذهب غير صالح.");
+ goldQuote=data;return data;
+}
+function goldGramPrice(karat=24,target=currency){
+ if(!goldQuote)return null;
+ const usdPerGram=Number(goldQuote.price_usd_troy_ounce)/31.1034768*(Number(karat)/24);
+ const converted=convertAmount(usdPerGram,"USD",target);
+ return converted===null?null:converted;
+}
+function goldHoldingValue(item){
+ const meta=item.metadata||{},weight=Number(meta.weight_grams)||0,karat=Number(meta.karat)||24;
+ const unit=goldGramPrice(karat,item.currency);
+ return weight>0&&unit!==null?weight*unit:Number(item.current_value)||0;
+}
+async function updateGoldHoldingValues(){
+ if(!goldQuote)return;
+ const rows=investments.filter(x=>x.asset_type==="gold"&&Number(x.metadata?.weight_grams)>0);
+ for(const item of rows){
+  const currentValue=goldHoldingValue(item);
+  const metadata={...(item.metadata||{}),market_source:goldQuote.source,market_updated_at:goldQuote.updated_at,market_price_usd_oz:goldQuote.price_usd_troy_ounce};
+  const result=await supa.from("investments").update({current_value:currentValue,metadata}).eq("id",item.id).eq("user_id",user.id);
+  if(result.error)throw result.error;
+  item.current_value=currentValue;item.metadata=metadata;
+ }
+}
+
 function money(n,c){return new Intl.NumberFormat("ar-YE",{maximumFractionDigits:2}).format(Number(n)||0)+" "+(c||currency);}
 function toast(message){const el=$("#toast");if(!el)return;el.textContent=message;el.classList.remove("hidden");clearTimeout(toast.timer);toast.timer=setTimeout(()=>el.classList.add("hidden"),3500);}
 function renderLanding(){
