@@ -1,38 +1,29 @@
-# تشغيل Ollama مع WALLET OS
+# ربط وكيل WALLET OS بـ Ollama
 
-## الخيار المجاني على GitHub (اختبار مؤقت فقط)
-المستودع Public؛ GitHub يتيح استخدام standard hosted runners مجانًا للمستودعات العامة. يوجد ملف workflow:
-`.github/workflows/ollama-smoke.yml`
-ويقوم بتشغيل Docker image الرسمية، وتنزيل `qwen3.5:0.8b`، وتنفيذ استدلال عربي، ثم حذف الحاوية عند انتهاء المهمة.
+## أولًا: Ollama Cloud (لا يحتاج VPS)
+ملف Vercel مهيأ حاليًا:
+- `OLLAMA_BASE_URL=https://ollama.com`
+- `OLLAMA_MODEL=gpt-oss:20b`
 
-**حد أساسي:** GitHub Actions يشغّل المهمة ثم ينهي runner. لذلك لا يقدم عنوانًا ثابتًا أو خادم Ollama دائمًا يمكن أن تتصل به Vercel بعد انتهاء المهمة. استخدم هذا الاختبار للتحقق من أن Ollama والنموذج يعملان، وليس لاستضافة مساعد الإنتاج. لا أنصح بإنشاء نفق عام من Runner مؤقت إلى بياناتك المالية.
+بقي مفتاح API، لأنه مرتبط بحساب Ollama الخاص بك ولا يمكن توليده نيابة عنك.
 
-## تشغيل دائم لخدمة المساعد
-يحتاج مساعد الإنتاج إلى جهاز أو VPS يعمل باستمرار. يمكن أن يكون جهازًا تملكه ومشغّلًا طوال الوقت، أو خادمًا سحابيًا دائمًا. قبل شراء VPS تحقق من التكلفة والموارد المتاحة. لا تُنشأ خدمة مدفوعة تلقائيًا من هذا المستودع.
+1. افتح https://ollama.com/settings/keys وأنشئ API key.
+2. افتح Vercel → مشروع wallet-os → Settings → Environment Variables.
+3. أضف `OLLAMA_API_KEY` كمتغير **Sensitive/Encrypted** إلى Production وPreview وDevelopment.
+4. لا تضع المفتاح في GitHub أو index.html أو رسائل المحادثة.
+5. أعد النشر.
+6. اختبر `https://wallet-os-ibrahimalcendee-4539.vercel.app/api/health`. المطلوب أن يكون `ollama_reachable=true` و`model_available=true`.
+7. جرّب الوكيل بسؤال عام لا يتضمن بيانات مالية حساسة أولًا.
 
-## إعداد خادم Ollama
-- Docker Compose يشغّل Ollama على شبكة داخلية.
-- Caddy يستقبل HTTPS ويتحقق من Bearer key.
-- المنفذ 11434 غير منشور للإنترنت.
+### ملاحظة التكلفة
+Ollama Pay as you go لا يتطلب اشتراكًا شهريًا، لكنه يحاسب طلبات النماذج السحابية حسب عدد الرموز. لذلك ليس API مجانيًا بلا حدود. `gpt-oss:20b` خيار أقل تكلفة من النماذج الأكبر وفق جدول الأسعار المنشور، لكن لا ترسل طلبات إلا بعد الاطلاع على أسعار النموذج وحدود الاستخدام:
+https://ollama.com/pricing
 
-### المتطلبات
-- Linux مع Docker Engine وDocker Compose Plugin.
-- ذاكرة/قرص ملائمان للنموذج.
-- نطاق DNS يشير إلى الخادم ومنافذ 80 و443 متاحة.
+## ثانيًا: تشغيل محلي على جهاز تملكه
+يمكن تشغيل Ollama محليًا دون دفع رسوم استخدام سحابية. يلزم بقاء الجهاز متصلًا بالإنترنت والعمل حتى يصل إليه Vercel. لا تعرّض المنفذ 11434 للعامة؛ استخدم Docker Compose وCaddy في مجلد `ollama/` وبوابة HTTPS مع Bearer key. تتحمل استهلاك الجهاز والكهرباء والإنترنت.
 
-### الخطوات
-1. انسخ `wallet-os/ollama` إلى جهاز الخادم.
-2. `cp .env.example .env`.
-3. أدخل نطاقًا حقيقيًا في `OLLAMA_DOMAIN` وبريدك في `ACME_EMAIL`.
-4. أنشئ سرًا: `openssl rand -hex 32` وضع الناتج في `OLLAMA_API_KEY`.
-5. شغّل `docker compose up -d ollama caddy`.
-6. نزّل النموذج: `docker compose exec ollama ollama pull qwen3.5:4b`.
-7. تحقق: `docker compose exec ollama ollama list`.
-8. اختبر بوابة HTTPS: `curl -i https://YOUR_DOMAIN/api/tags -H "Authorization: Bearer YOUR_KEY"`.
-9. أضف على Vercel:
-   - `OLLAMA_BASE_URL=https://YOUR_DOMAIN`
-   - `OLLAMA_API_KEY` = نفس السر
-   - `OLLAMA_MODEL=qwen3.5:4b`
-10. أعد نشر Vercel واختبر `/api/health`؛ يلزم أن يكون `ollama_reachable: true`.
+## ثالثًا: GitHub Actions
+ملف `.github/workflows/ollama-smoke.yml` اختبار مؤقت ينزل Ollama والنموذج على Runner ويجري استدلالًا عربيًا ثم يوقف الحاوية. لا يوفر GitHub Actions خادمًا دائمًا يمكن ربطه بالوكيل بعد انتهاء المهمة.
 
-لا تفتح 11434 على الجدار الناري، ولا تحفظ المفتاح في الواجهة أو المستودع. لا ترفع `.env` الحقيقي إلى GitHub.
+## التحقق
+واجهة الوكيل تستدعي `/api/health` وتعرض حالتين منفصلتين: وصول الخادم، وتوفر النموذج المحدد. لا تظهر الحالة "متصل والنموذج جاهز" حتى يعود الاثنان صحيحين. لا تشارك API key مع أي مستخدم أو تضعها في مستودع المشروع.
