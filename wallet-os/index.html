@@ -146,6 +146,9 @@ async function updateGoldHoldingValues(){
  const rows=investments.filter(x=>x.asset_type==="gold"&&Number(x.metadata?.weight_grams)>0);
  for(const item of rows){
   const currentValue=goldHoldingValue(item);
+  if(currentValue===null||!Number.isFinite(currentValue)||currentValue<=0){
+   throw new Error("لا يمكن تحديث قيمة "+item.name+" لأن سعر الصرف إلى "+item.currency+" غير متوفر. حدّث أسعار الصرف أولًا.");
+  }
   const metadata={...(item.metadata||{}),market_source:goldQuote.source,market_updated_at:goldQuote.updated_at,market_price_usd_oz:goldQuote.price_usd_troy_ounce};
   const result=await supa.from("investments").update({current_value:currentValue,metadata}).eq("id",item.id).eq("user_id",user.id);
   if(result.error)throw result.error;
@@ -285,7 +288,10 @@ function renderPage(){
  }else if(active==="transactions"||active==="income"||active==="expenses"){
   const items=transactions.filter(t=>active==="transactions"||t.type===(active==="income"?"income":"expense"));
   html=pageHeader(active==="income"?"سجل جميع مصادر الدخل المسجلة.":active==="expenses"?"راجع مصروفاتك وتصنيفاتها.":"جميع العمليات المالية المسجلة في حسابك.",'<button class="btn primary" id="moduleAdd">＋ إضافة عملية</button>');
-  html+='<div class="grid stats">'+stat("عدد العمليات",items.length,"نتائج السجل","")+stat("الإجمالي",money(items.filter(t=>t.currency===currency).reduce((s,t)=>s+Number(t.amount),0)),currency,"")+stat("الدخل",money(items.filter(t=>t.type==="income"&&t.currency===currency).reduce((s,t)=>s+Number(t.amount),0)),currency,"positive")+stat("المصروفات",money(items.filter(t=>t.type==="expense"&&t.currency===currency).reduce((s,t)=>s+Number(t.amount),0)),currency,"negative")+'</div><div class="card"><div class="cardhead"><h2>سجل العمليات</h2><span class="tiny">الأحدث أولًا · القيم الأصلية محفوظة</span></div>'+tableRows(items,"transactions")+'</div>';
+  const convertedTotal=items.reduce((s,t)=>{const amount=convertAmount(t.amount,t.currency,currency);return s+(amount===null?0:amount);},0);
+  const convertedIncome=items.filter(t=>t.type==="income").reduce((s,t)=>{const amount=convertAmount(t.amount,t.currency,currency);return s+(amount===null?0:amount);},0);
+  const convertedExpense=items.filter(t=>t.type==="expense").reduce((s,t)=>{const amount=convertAmount(t.amount,t.currency,currency);return s+(amount===null?0:amount);},0);
+  html+='<div class="grid stats">'+stat("عدد العمليات",items.length,"نتائج السجل","")+stat("الإجمالي",money(convertedTotal,currency),currency,"")+stat("الدخل",money(convertedIncome,currency),currency,"positive")+stat("المصروفات",money(convertedExpense,currency),currency,"negative")+'</div><div class="card"><div class="cardhead"><h2>سجل العمليات</h2><span class="tiny">الأحدث أولًا · القيم الأصلية محفوظة</span></div>'+tableRows(items,"transactions")+'</div>';
  }else if(active==="investments"){
   const items=investments,spot=goldQuote,px24=goldGramPrice(24,currency),px22=goldGramPrice(22,currency),px21=goldGramPrice(21,currency),px18=goldGramPrice(18,currency);
   html=pageHeader("سجل مشترياتك من الذهب والأصول، وقارن تكلفة الشراء بالقيمة المرجعية المحسوبة من السعر العالمي.",'<button class="btn primary" id="addGoldInvestment">＋ إضافة استثمار ذهب</button> <button class="btn" id="moduleAdd">＋ أصل آخر</button>');
