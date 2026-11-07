@@ -1,5 +1,5 @@
-import os, time, re
-from urllib.parse import quote
+import os, time, re, asyncio, ipaddress, socket
+from urllib.parse import quote, urlparse
 from collections import defaultdict, deque
 from typing import Any
 import httpx
@@ -276,6 +276,25 @@ def ai_chat_endpoint(provider:str,base_url:str|None)->str:
  if base.endswith("/v1"):return base+"/chat/completions"
  return base+"/v1/chat/completions"
 
+async def validate_provider_base_url(base_url:str|None):
+ if not base_url:return
+ parsed=urlparse(base_url)
+ if parsed.scheme!="https" or not parsed.hostname or parsed.username or parsed.password:
+  raise HTTPException(400,"عنوان مزود الذكاء الاصطناعي يجب أن يكون HTTPS صالحًا دون بيانات دخول مضمّنة.")
+ if parsed.port not in (None,443):
+  raise HTTPException(400,"عنوان المزود المخصص يجب أن يستخدم منفذ HTTPS القياسي 443.")
+ host=parsed.hostname.rstrip(".").lower()
+ if host in {"localhost","localhost.localdomain","metadata.google.internal"} or host.endswith((".localhost",".local",".internal")):
+  raise HTTPException(400,"لا يُسمح باستخدام عناوين محلية أو داخلية كمزود ذكاء اصطناعي.")
+ try:
+  loop=asyncio.get_running_loop()
+  records=await loop.getaddrinfo(host,443,type=socket.SOCK_STREAM)
+  addresses={ipaddress.ip_address(record[4][0]) for record in records}
+ except (OSError,ValueError):
+  raise HTTPException(400,"تعذر التحقق من عنوان مزود الذكاء الاصطناعي.")
+ if not addresses or any(not address.is_global for address in addresses):
+  raise HTTPException(400,"عنوان API لا يشير إلى خادم عام آمن.")
+
 async def load_user_ai_config(authorization:str):
  rows=await supabase_rpc("walletos_get_ai_secret",{},authorization)
  if isinstance(rows,list) and rows:
@@ -299,8 +318,8 @@ async def save_ai_config(req:AIConfigRequest,authorization:str|None=Header(defau
  if not authorization:raise HTTPException(401,"سجّل الدخول أولًا.")
  if req.provider not in ("ollama_cloud","openai","openrouter","groq","custom"):
   raise HTTPException(400,"مزود الذكاء الاصطناعي غير مدعوم.")
- if req.base_url and not req.base_url.strip().lower().startswith("https://"):
-  raise HTTPException(400,"يجب استخدام عنوان HTTPS آمن.")
+ if req.base_url:
+  await validate_provider_base_url(req.base_url.strip())
  if req.provider=="custom" and not req.base_url:
   raise HTTPException(400,"أدخل عنوان API المخصص.")
  result=await supabase_rpc("walletos_save_ai_config",{
@@ -325,6 +344,7 @@ async def test_ai_config(authorization:str|None=Header(default=None)):
  if not api_key or not model:
   raise HTTPException(400,"احفظ مزود الذكاء الاصطناعي ومفتاح API أولًا من الإعدادات.")
  endpoint=ai_chat_endpoint(provider,base_url)
+ if base_url:await validate_provider_base_url(str(base_url))
  headers={"Authorization":"Bearer "+api_key,"Accept":"application/json"}
  try:
   async with httpx.AsyncClient(timeout=httpx.Timeout(15,connect=5),follow_redirects=False) as client:
@@ -387,6 +407,7 @@ async def chat(req:ChatRequest,authorization:str|None=Header(default=None)):
  try:
   messages=[{"role":"system","content":system+"\nFinancial data (sanitized): "+__import__("json").dumps(safe_context,ensure_ascii=False)},{"role":"user","content":req.message}]
   endpoint=ai_chat_endpoint(provider,base_url)
+  if base_url:await validate_provider_base_url(str(base_url))
   headers={"Authorization":"Bearer "+api_key,"Content-Type":"application/json","Accept":"application/json"}
   async with httpx.AsyncClient(timeout=httpx.Timeout(180,connect=10),follow_redirects=False) as c:
    if provider=="ollama_cloud":
