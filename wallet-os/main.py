@@ -418,6 +418,22 @@ async def chat(req:ChatRequest,authorization:str|None=Header(default=None)):
  except (httpx.HTTPError,ValueError,TypeError,KeyError): raise HTTPException(502,"تعذر الاتصال بمزود الذكاء الاصطناعي الآمن.")
  except Exception: raise HTTPException(502,"حدث خطأ غير متوقع في المساعد الذكي.")
 
+@app.get("/manifest.webmanifest")
+async def pwa_manifest():
+ return FileResponse(os.path.join(ROOT,"manifest.webmanifest"),media_type="application/manifest+json",headers={"Cache-Control":"public,max-age=3600"})
+
+@app.get("/sw.js")
+async def pwa_service_worker():
+ return FileResponse(os.path.join(ROOT,"sw.js"),media_type="application/javascript",headers={"Cache-Control":"no-cache"})
+
+@app.get("/icon-192.png")
+async def pwa_icon_192():
+ return FileResponse(os.path.join(ROOT,"icon-192.png"),media_type="image/png",headers={"Cache-Control":"public,max-age=31536000,immutable"})
+
+@app.get("/icon-512.png")
+async def pwa_icon_512():
+ return FileResponse(os.path.join(ROOT,"icon-512.png"),media_type="image/png",headers={"Cache-Control":"public,max-age=31536000,immutable"})
+
 @app.get("/")
 async def index(): return FileResponse(os.path.join(ROOT,"index.html"))
 @app.get("/logo.svg")
