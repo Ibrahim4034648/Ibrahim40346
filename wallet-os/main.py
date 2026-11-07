@@ -23,6 +23,12 @@ class ChatRequest(BaseModel):
  context:dict[str,Any]=Field(default_factory=dict)
  language:str="ar"
 
+class AIConfigRequest(BaseModel):
+ provider:str=Field(min_length=1,max_length=40)
+ model:str=Field(min_length=1,max_length=160)
+ api_key:str|None=Field(default=None,max_length=8192)
+ base_url:str|None=Field(default=None,max_length=500)
+
 @app.middleware("http")
 async def basic_rate_limit(request:Request,call_next):
  if request.url.path=="/api/chat":
@@ -235,10 +241,129 @@ async def verify_user(authorization:str|None):
  if r.status_code!=200: raise HTTPException(401,"جلسة الدخول غير صالحة أو منتهية.")
  return r.json().get("id")
 
+async def supabase_rpc(function_name:str,args:dict[str,Any],authorization:str):
+ if not SUPABASE_URL or not SUPABASE_PUBLISHABLE_KEY:
+  raise HTTPException(503,"Supabase غير مهيأ.")
+ headers={"apikey":SUPABASE_PUBLISHABLE_KEY,"Authorization":authorization,"Content-Type":"application/json","Accept":"application/json"}
+ async with httpx.AsyncClient(timeout=httpx.Timeout(15,connect=5)) as client:
+  try:
+   response=await client.post(SUPABASE_URL+"/rest/v1/rpc/"+function_name,headers=headers,json=args)
+  except httpx.HTTPError:
+   raise HTTPException(503,"تعذر الوصول إلى قاعدة بيانات الإعدادات.")
+ if response.status_code>=400:
+  try:
+   payload=response.json()
+   detail=payload.get("message") or payload.get("hint") or payload.get("details") or "تعذر تنفيذ عملية الإعداد."
+  except ValueError:
+   detail="تعذر تنفيذ عملية الإعداد."
+  raise HTTPException(400,str(detail)[:500])
+ try:return response.json()
+ except ValueError:return None
+
+AI_PROVIDER_DEFAULTS={
+ "ollama_cloud":"https://ollama.com",
+ "openai":"https://api.openai.com/v1",
+ "openrouter":"https://openrouter.ai/api/v1",
+ "groq":"https://api.groq.com/openai/v1",
+}
+
+def ai_chat_endpoint(provider:str,base_url:str|None)->str:
+ base=(base_url or AI_PROVIDER_DEFAULTS.get(provider,"")).strip().rstrip("/")
+ if not base:raise HTTPException(400,"أدخل عنوان API صالحًا لمزود الذكاء الاصطناعي.")
+ if not base.lower().startswith("https://"):raise HTTPException(400,"يجب أن يبدأ عنوان API بـ HTTPS.")
+ if provider=="ollama_cloud":return base+"/api/chat"
+ if base.endswith("/chat/completions"):return base
+ if base.endswith("/v1"):return base+"/chat/completions"
+ return base+"/v1/chat/completions"
+
+async def load_user_ai_config(authorization:str):
+ rows=await supabase_rpc("walletos_get_ai_secret",{},authorization)
+ if isinstance(rows,list) and rows:
+  return rows[0]
+ return None
+
+@app.get("/api/ai/config")
+async def get_ai_config(authorization:str|None=Header(default=None)):
+ await verify_user(authorization)
+ if not authorization:raise HTTPException(401,"سجّل الدخول أولًا.")
+ data=await supabase_rpc("walletos_get_ai_config",{},authorization)
+ if not isinstance(data,dict):data={"configured":False,"has_key":False}
+ data["fallback_available"]=bool(OLLAMA_BASE_URL and OLLAMA_API_KEY)
+ data["default_provider"]="ollama_cloud"
+ data["default_model"]=OLLAMA_MODEL
+ return data
+
+@app.post("/api/ai/config")
+async def save_ai_config(req:AIConfigRequest,authorization:str|None=Header(default=None)):
+ await verify_user(authorization)
+ if not authorization:raise HTTPException(401,"سجّل الدخول أولًا.")
+ if req.provider not in ("ollama_cloud","openai","openrouter","groq","custom"):
+  raise HTTPException(400,"مزود الذكاء الاصطناعي غير مدعوم.")
+ if req.base_url and not req.base_url.strip().lower().startswith("https://"):
+  raise HTTPException(400,"يجب استخدام عنوان HTTPS آمن.")
+ if req.provider=="custom" and not req.base_url:
+  raise HTTPException(400,"أدخل عنوان API المخصص.")
+ result=await supabase_rpc("walletos_save_ai_config",{
+  "p_provider":req.provider,"p_model":req.model.strip(),
+  "p_api_key":req.api_key.strip() if req.api_key and req.api_key.strip() else None,
+  "p_base_url":req.base_url.strip().rstrip("/") if req.base_url and req.base_url.strip() else None
+ },authorization)
+ return result if isinstance(result,dict) else {"ok":True}
+
+@app.post("/api/ai/test")
+async def test_ai_config(authorization:str|None=Header(default=None)):
+ await verify_user(authorization)
+ if not authorization:raise HTTPException(401,"سجّل الدخول أولًا.")
+ cfg=await load_user_ai_config(authorization)
+ if cfg:
+  provider=str(cfg.get("provider") or "")
+  model=str(cfg.get("model") or "")
+  api_key=str(cfg.get("api_key") or "")
+  base_url=cfg.get("base_url")
+ else:
+  provider="ollama_cloud";model=OLLAMA_MODEL;api_key=OLLAMA_API_KEY;base_url=OLLAMA_BASE_URL
+ if not api_key or not model:
+  raise HTTPException(400,"احفظ مزود الذكاء الاصطناعي ومفتاح API أولًا من الإعدادات.")
+ endpoint=ai_chat_endpoint(provider,base_url)
+ headers={"Authorization":"Bearer "+api_key,"Accept":"application/json"}
+ try:
+  async with httpx.AsyncClient(timeout=httpx.Timeout(15,connect=5),follow_redirects=False) as client:
+   if provider=="ollama_cloud":
+    response=await client.get(endpoint.removesuffix("/api/chat")+"/api/tags",headers=headers)
+    if response.status_code==200:
+     models=response.json().get("models") or []
+     exists=any(str(m.get("name","")).split(":")[0]==model.split(":")[0] for m in models)
+     return {"ok":True,"provider":provider,"model":model,"model_available":exists,"message":"الاتصال ناجح." if exists else "الاتصال ناجح لكن لم يظهر النموذج المحدد في قائمة النماذج."}
+   else:
+    base=endpoint.removesuffix("/chat/completions")
+    response=await client.get(base+"/models",headers=headers)
+    if response.status_code==200:
+     rows=(response.json().get("data") or [])
+     model_ids=[str(x.get("id","")) for x in rows if isinstance(x,dict)]
+     available=(model in model_ids) if model_ids else True
+     return {"ok":True,"provider":provider,"model":model,"model_available":available,"message":"الاتصال ناجح." if available else "تم الاتصال لكن النموذج غير ظاهر ضمن قائمة النماذج."}
+   if response.status_code==401:raise HTTPException(401,"رفض مزود الخدمة مفتاح API. تحقق من المفتاح.")
+   if response.status_code==403:raise HTTPException(403,"المفتاح لا يملك صلاحية الوصول إلى الخدمة أو النموذج.")
+   if response.status_code==404:raise HTTPException(404,"لم يتم العثور على نقطة الخدمة أو النموذج.")
+   if response.status_code==429:raise HTTPException(429,"تجاوزت حد الطلبات مؤقتًا لدى مزود الخدمة.")
+   raise HTTPException(502,"تعذر التحقق من الاتصال؛ استجابة المزود HTTP "+str(response.status_code)+".")
+ except HTTPException:raise
+ except httpx.TimeoutException:raise HTTPException(504,"انتهت مهلة اختبار الاتصال.")
+ except httpx.HTTPError:raise HTTPException(503,"تعذر الوصول إلى مزود الذكاء الاصطناعي.")
+
 @app.post("/api/chat")
 async def chat(req:ChatRequest,authorization:str|None=Header(default=None)):
  await verify_user(authorization)
- if not OLLAMA_BASE_URL or not OLLAMA_API_KEY: raise HTTPException(503,"مساعد Ollama غير متصل بعد. اضبط عنوان HTTPS ومفتاح الخدمة على الخادم.")
+ if not authorization:raise HTTPException(401,"سجّل الدخول أولًا.")
+ user_ai=await load_user_ai_config(authorization)
+ if user_ai:
+  provider=str(user_ai.get("provider") or "")
+  model=str(user_ai.get("model") or "")
+  base_url=user_ai.get("base_url")
+  api_key=str(user_ai.get("api_key") or "")
+ else:
+  provider="ollama_cloud";model=OLLAMA_MODEL;base_url=OLLAMA_BASE_URL;api_key=OLLAMA_API_KEY
+ if not api_key or not model:raise HTTPException(503,"لم يتم إعداد مزود الذكاء الاصطناعي. أضف مفتاح API من صفحة الإعدادات.")
  context=req.context if isinstance(req.context,dict) else {}
  # Send only aggregate totals and a capped, sanitized transaction sample; never send account IDs or auth data.
  txs=context.get("transactions",[]) if isinstance(context.get("transactions",[]),list) else []
@@ -260,26 +385,38 @@ async def chat(req:ChatRequest,authorization:str|None=Header(default=None)):
  safe_context={"currency":str(context.get("currency","YER"))[:3],"income":context.get("income",0),"expenses":context.get("expenses",0),"net":context.get("net",0),"fx_rates_usd_base":safe_fx,"gold_market":safe_gold,"investments":safe_investments,"transactions":safe}
  system=("أنت WALLET OS، مساعد تحليل مالي. استخدم فقط الأرقام المقدمة ولا تخترع بيانات. وضح العملة وتاريخ أسعار الصرف ومصدرها، وميّز بين أسعار الصرف المرجعية اليومية وسعر السوق النقدي. سعر الذهب الفوري مرجعي بالدولار للأونصة الترويسية، والسعر المحسوب للغرام لا يشمل المصنعية أو الضريبة أو فرق البيع والشراء. لا تستخدم سعر الذهب إذا كان وقت تحديثه غير واضح أو قديمًا. التحويلات ليست دخلا ولا مصروفا. لا تنفذ معاملات أو تدّع تنفيذها. قدم توصيات عملية غير مضمونة النتائج. أجب باللغة العربية." if req.language=="ar" else "You are WALLET OS, a careful personal finance analysis assistant. Use only supplied facts, state currency, FX dates and sources, distinguish daily reference FX from local cash-market rates, identify gold spot as an indicative quote excluding dealer premiums and taxes, never invent data or claim to execute transactions.")
  try:
-  async with httpx.AsyncClient(timeout=httpx.Timeout(180,connect=10)) as c:
-   r=await c.post(OLLAMA_BASE_URL+"/api/chat",headers={"Authorization":"Bearer "+OLLAMA_API_KEY,"Content-Type":"application/json"},json={"model":OLLAMA_MODEL,"stream":False,"messages":[{"role":"system","content":system+"\nFinancial data (sanitized): "+__import__("json").dumps(safe_context,ensure_ascii=False)},{"role":"user","content":req.message}]})
+  messages=[{"role":"system","content":system+"\nFinancial data (sanitized): "+__import__("json").dumps(safe_context,ensure_ascii=False)},{"role":"user","content":req.message}]
+  endpoint=ai_chat_endpoint(provider,base_url)
+  headers={"Authorization":"Bearer "+api_key,"Content-Type":"application/json","Accept":"application/json"}
+  async with httpx.AsyncClient(timeout=httpx.Timeout(180,connect=10),follow_redirects=False) as c:
+   if provider=="ollama_cloud":
+    r=await c.post(endpoint,headers=headers,json={"model":model,"stream":False,"messages":messages})
+   else:
+    r=await c.post(endpoint,headers=headers,json={"model":model,"stream":False,"messages":messages,"temperature":0.3})
   if r.status_code==402:
-   raise HTTPException(402,"رفضت Ollama تنفيذ الطلب بسبب حالة الاستخدام أو الفوترة (HTTP 402). افتح https://ollama.com/settings لمراجعة استخدام حسابك وحدود الخطة. قد تكون حصة الاستخدام المجانية للجلسة أو الأسبوع قد استُهلكت؛ انتظر إعادة ضبطها أو راجع خيارات حسابك. لا حاجة إلى إنشاء مفتاح جديد ما دام فحص الاتصال ناجحًا.")
+   raise HTTPException(402,"رفض مزود الذكاء الاصطناعي الطلب بسبب الفوترة أو حدود الاستخدام. راجع رصيد حسابك وحدود الخطة.")
   if r.status_code==401:
-   raise HTTPException(502,"رفضت Ollama مفتاح API (HTTP 401). تحقق من المفتاح المحفوظ في Vercel.")
+   raise HTTPException(502,"رفض مزود الخدمة مفتاح API. تحقق من المفتاح المحفوظ في الإعدادات.")
   if r.status_code==403:
-   raise HTTPException(502,"حساب Ollama غير مخوّل لاستخدام هذا النموذج (HTTP 403). راجع صلاحيات النموذج والخطة.")
+   raise HTTPException(502,"المفتاح لا يملك صلاحية استخدام هذا النموذج لدى مزود الخدمة.")
   if r.status_code==404:
-   raise HTTPException(502,"النموذج المحدد غير متاح لخدمة Ollama (HTTP 404). تحقق من اسم النموذج في إعدادات Vercel.")
+   raise HTTPException(502,"لم يتم العثور على النموذج أو مسار API. تحقق من اسم النموذج وعنوان الخدمة.")
   if r.status_code==429:
-   raise HTTPException(429,"وصلت إلى حد الطلبات المؤقت في Ollama (HTTP 429). انتظر قليلًا ثم حاول مجددًا.")
+   raise HTTPException(429,"وصلت إلى حد الطلبات لدى مزود الخدمة. حاول لاحقًا.")
   if r.status_code>=400:
-   raise HTTPException(502,"أعادت خدمة Ollama خطأ HTTP "+str(r.status_code)+". حاول مجددًا لاحقًا.")
-  data=r.json(); answer=(data.get("message") or {}).get("content","").strip()
-  if not answer: raise HTTPException(502,"لم يُرجع النموذج إجابة.")
-  return {"ok":True,"model":OLLAMA_MODEL,"content":answer}
+   raise HTTPException(502,"أعاد مزود الذكاء الاصطناعي خطأ HTTP "+str(r.status_code)+".")
+  data=r.json()
+  if provider=="ollama_cloud":
+   answer=(data.get("message") or {}).get("content","").strip()
+  else:
+   choices=data.get("choices") or []
+   answer=str(((choices[0].get("message") or {}).get("content") if choices else "") or "").strip()
+  if not answer: raise HTTPException(502,"لم يُرجع النموذج إجابة صالحة.")
+  return {"ok":True,"provider":provider,"model":model,"content":answer}
  except httpx.TimeoutException: raise HTTPException(504,"استغرق النموذج وقتًا طويلًا. حاول مجددًا.")
  except HTTPException: raise
- except Exception: raise HTTPException(502,"تعذر الاتصال بخدمة Ollama الآمنة.")
+ except (httpx.HTTPError,ValueError,TypeError,KeyError): raise HTTPException(502,"تعذر الاتصال بمزود الذكاء الاصطناعي الآمن.")
+ except Exception: raise HTTPException(502,"حدث خطأ غير متوقع في المساعد الذكي.")
 
 @app.get("/")
 async def index(): return FileResponse(os.path.join(ROOT,"index.html"))
