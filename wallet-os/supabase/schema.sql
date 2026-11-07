@@ -404,3 +404,7 @@ create policy user_ai_provider_configs_own on private.user_ai_provider_configs
   with check ((select auth.uid())=user_id);
 revoke all on schema private from public,anon,authenticated;
 revoke all on private.user_ai_provider_configs from public,anon,authenticated;
+
+
+-- The UI has no delete-key action yet; keep the future helper unavailable over the public RPC surface.
+revoke execute on function public.walletos_clear_ai_config() from public, anon, authenticated;
