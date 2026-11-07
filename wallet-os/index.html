@@ -5,6 +5,12 @@
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <meta name="theme-color" content="#101010">
 <meta name="description" content="WALLET OS — مساحتك المالية الشخصية لإدارة الدخل والمصروفات والادخار والالتزامات والاستثمار.">
+<link rel="manifest" href="/manifest.webmanifest">
+<link rel="icon" href="/icon-192.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="/icon-192.svg">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="WALLET OS">
 <title>WALLET OS — أموالك بصورة أوضح</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -12,6 +18,7 @@
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
 <style>
+.ai-config-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:2px 14px}.ai-config-grid .fieldlabel{margin:10px 0}.ai-config-actions{display:flex;gap:9px;flex-wrap:wrap;margin-top:12px}.ai-config-status{padding:10px 12px;border:1px solid var(--line);border-radius:11px;background:var(--surface2);margin-top:12px;line-height:1.8}.install-pwa-card{margin-top:16px}.install-pwa-card p{line-height:1.8}.install-pwa-actions{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
 :root{color-scheme:dark;--bg:#0d0e10;--surface:#151719;--surface2:#1c1f21;--line:#2b2e30;--text:#f2f1ed;--muted:#9a9c9d;--gold:#d3b16b;--gold2:#f0dca9;--green:#9cc29e;--red:#db9289;--blue:#9dbbd0;--radius:20px;--shadow:0 24px 70px #0005}
 *{box-sizing:border-box}html{scroll-behavior:smooth}body{margin:0;background:radial-gradient(ellipse at 80% -15%,#5a47231c,transparent 38%),var(--bg);color:var(--text);font-family:"IBM Plex Sans Arabic",Inter,sans-serif}button,input,select,textarea{font:inherit}button{cursor:pointer}a{color:inherit;text-decoration:none}.wrap{width:min(1180px,calc(100% - 44px));margin:auto}.muted{color:var(--muted)}.gold{color:var(--gold)}.tiny{font-size:12px;color:var(--muted)}.eyebrow{font-size:11px;letter-spacing:1.4px;color:var(--gold);font-weight:700}.brand{display:flex;align-items:center;gap:12px}.brandmark{width:42px;height:42px;border:1px solid #9d824b;border-radius:14px;display:grid;place-items:center;color:var(--gold);font-family:Inter,sans-serif;font-weight:700;font-size:20px;box-shadow:inset 0 0 22px #d3b16b13}.brandname{font-family:Inter,sans-serif;font-size:15px;font-weight:700;letter-spacing:2px}.brandtag{font-family:Inter,sans-serif;font-size:9px;letter-spacing:1px;color:var(--muted);display:block;margin-top:3px}.btn{border:1px solid var(--line);background:var(--surface2);color:var(--text);padding:11px 17px;border-radius:12px;transition:.2s;font-weight:600}.btn:hover{border-color:#92794a;transform:translateY(-1px)}.btn.primary{background:linear-gradient(135deg,#e4ca8d,#c6a25a);color:#17140e;border-color:#d3b16b}.btn.ghost{background:transparent}.btn.small{padding:7px 11px;font-size:12px}.landing{min-height:100vh;overflow:hidden}.sitehead{height:88px;display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid #ffffff0b}.site-nav{display:flex;align-items:center;gap:28px;color:#b8b9b7;font-size:13px}.site-nav a:hover{color:var(--gold)}.hero{min-height:610px;display:grid;grid-template-columns:1.1fr .9fr;gap:56px;align-items:center;padding:72px 0 90px}.hero-copy h1{font-size:clamp(42px,6vw,76px);line-height:1.22;letter-spacing:-1.5px;margin:18px 0 20px;font-weight:600}.hero-copy h1 span{color:var(--gold)}.hero-copy p{font-size:17px;line-height:2;color:#aeb0af;max-width:570px;margin:0 0 30px}.hero-actions{display:flex;gap:12px;flex-wrap:wrap}.trustline{display:flex;gap:20px;flex-wrap:wrap;margin-top:34px;color:#8f9292;font-size:12px}.trustline span{display:flex;align-items:center;gap:8px}.trustline i{display:inline-block;width:6px;height:6px;background:var(--gold);border-radius:50%}.hero-art{position:relative;min-height:430px;display:grid;place-items:center}.orb{position:absolute;width:370px;height:370px;border-radius:50%;background:radial-gradient(circle at 32% 30%,#e4c57c20,transparent 55%),radial-gradient(circle,#d4b16b12,transparent 70%);filter:blur(2px)}.mock{position:relative;width:min(430px,100%);background:linear-gradient(145deg,#202224f5,#111315f7);border:1px solid #6f603c70;border-radius:28px;padding:23px;box-shadow:0 40px 110px #0009;transform:rotate(-2deg)}.mocktop{display:flex;justify-content:space-between;align-items:center;margin-bottom:25px}.mockbalance{font-family:Inter,sans-serif;font-size:32px;font-weight:600;margin:10px 0 5px;direction:ltr;text-align:right}.mocklabel{font-size:12px;color:#9ea09f}.mockbars{height:116px;display:flex;align-items:end;gap:8px;padding:8px 4px 0;margin:18px 0}.mockbars i{flex:1;border-radius:7px 7px 2px 2px;background:linear-gradient(180deg,#e2c782,#7c683c);opacity:.78}.mockrows{display:grid;gap:9px}.mockrow{display:flex;justify-content:space-between;align-items:center;padding:12px;border:1px solid #ffffff0d;background:#ffffff05;border-radius:12px;font-size:12px}.mockdot{width:30px;height:30px;border-radius:10px;background:#d3b16b20;display:inline-grid;place-items:center;color:var(--gold);margin-left:9px}.floatnote{position:absolute;padding:13px 16px;background:#1a1d1ff2;border:1px solid #55482b;border-radius:14px;box-shadow:var(--shadow);font-size:12px}.floatnote.one{top:50px;left:-14px}.floatnote.two{bottom:35px;right:-12px}.features{padding:40px 0 100px}.sectiontitle{text-align:center;max-width:660px;margin:0 auto 36px}.sectiontitle h2{font-size:32px;margin:12px 0}.sectiontitle p{color:var(--muted);line-height:1.9;font-size:14px}.featuregrid{display:grid;grid-template-columns:repeat(3,1fr);gap:15px}.feature{background:linear-gradient(145deg,#1b1e1f,#131516);border:1px solid var(--line);border-radius:18px;padding:24px;min-height:164px}.featureicon{font-size:22px;color:var(--gold);margin-bottom:18px}.feature h3{font-size:16px;margin:0 0 8px}.feature p{font-size:12px;line-height:1.8;color:var(--muted);margin:0}.sitefoot{border-top:1px solid #ffffff0d;padding:28px 0;color:#7f8282;font-size:12px;display:flex;justify-content:space-between;gap:16px;flex-wrap:wrap}
 .authpage{min-height:100vh;display:grid;grid-template-columns:1fr 1fr}.authvisual{padding:8vw;display:flex;flex-direction:column;justify-content:center;background:radial-gradient(ellipse at 30% 30%,#d3b16b20,transparent 45%),linear-gradient(145deg,#1b1e20,#0e1011)}.authvisual h1{font-size:clamp(35px,4vw,56px);line-height:1.3;margin:35px 0 14px}.authvisual p{color:var(--muted);line-height:2;max-width:450px}.authpanelwrap{display:grid;place-items:center;padding:28px}.authpanel{width:min(410px,100%)}.authpanel h2{font-size:28px;margin:32px 0 8px}.authpanel>p{color:var(--muted);font-size:13px;line-height:1.8;margin:0 0 25px}.fieldlabel{display:grid;gap:8px;color:#b6b8b6;font-size:12px;margin:15px 0}.field{width:100%;background:#111416;border:1px solid var(--line);border-radius:11px;color:var(--text);padding:13px 14px;outline:none}.field:focus{border-color:#ad9057;box-shadow:0 0 0 3px #d3b16b14}.authpanel .btn{width:100%;margin-top:10px}.inline-actions{display:flex;justify-content:space-between;gap:12px;align-items:center;margin-top:15px}.linkbtn{background:none;border:0;color:var(--gold);padding:5px;font-size:12px}.backhome{display:inline-flex;align-items:center;gap:8px;color:#aeb0b0;font-size:12px;margin-top:30px}.authnotice{display:none;background:#1d241e;border:1px solid #526d52;border-radius:12px;padding:12px;font-size:12px;line-height:1.8;margin-top:14px;color:#b9d8b8}
@@ -74,7 +81,7 @@ body.light .btn.primary{color:#17140e}
 .financing-chart-card{margin:0 0 16px}.financing-chart-wrap{height:340px;position:relative;min-width:0}.financing-holdings,.financing-history{margin-bottom:14px}.financing-holdings .tablewrap,.financing-history .tablewrap{max-height:560px}.financing-footnote{line-height:1.9;margin:8px 4px 18px}.financing-progress-card{transition:background .2s,border-color .2s}.financing-progress-card.profit{background:linear-gradient(145deg,#153021,#151719);border-color:#368b55}.financing-progress-card.loss{background:linear-gradient(145deg,#3a211f,#151719);border-color:#a44743}.financing-progress-card.profit .statlabel{color:#9bd3a8}.financing-progress-card.loss .statlabel{color:#e5a09b}.financing-calculator,.financing-payment-summary{border:1px solid var(--line);border-radius:13px;background:var(--surface2);padding:14px;display:grid;gap:6px}.financing-calculator span,.financing-payment-summary span{font-size:12px;color:var(--muted)}.financing-calculator strong,.financing-payment-summary strong{font:600 21px Inter,sans-serif;direction:ltr;text-align:right;color:var(--green)}.financing-calculator small,.financing-payment-summary small{font-size:11px;color:var(--muted)}.financing-actions{min-width:230px}.financing-progress-card.profit .statvalue{color:var(--green)}.financing-progress-card.loss .statvalue{color:var(--red)}body.light .financing-progress-card.profit{background:linear-gradient(145deg,#e7f5e9,#fff);border-color:#70b27e}body.light .financing-progress-card.loss{background:linear-gradient(145deg,#fae8e6,#fff);border-color:#d88a84}body.light .financing-progress-card.profit .statlabel{color:#286f3b}body.light .financing-progress-card.loss .statlabel{color:#a43c36}body.light .financing-calculator,body.light .financing-payment-summary{background:#f8f7f3;border-color:#dedbd2}
 .investment-pnl-card{transition:background .2s,border-color .2s}.investment-pnl-card.profit{border-color:#368b55;background:linear-gradient(145deg,#153021,#151719)}.investment-pnl-card.loss{border-color:#a44743;background:linear-gradient(145deg,#3a211f,#151719)}.investment-pnl-card.neutral{border-color:var(--line)}.investment-pnl-card.profit .statlabel{color:#9bd3a8}.investment-pnl-card.loss .statlabel{color:#e5a09b}.investment-chart-card{margin:0 0 16px}.investment-chart-wrap{height:350px;position:relative;min-width:0}.investment-holdings{margin-bottom:14px}.investment-holdings .tablewrap{max-height:570px}.investment-footnote{line-height:1.9;margin:8px 4px 18px}.investment-summary .statvalue{font-size:clamp(20px,2vw,27px)}body.light .investment-pnl-card.profit{background:linear-gradient(145deg,#e7f5e9,#fff);border-color:#70b27e}body.light .investment-pnl-card.loss{background:linear-gradient(145deg,#fae8e6,#fff);border-color:#d88a84}body.light .investment-pnl-card.profit .statlabel{color:#286f3b}body.light .investment-pnl-card.loss .statlabel{color:#a43c36}
 @media(max-width:1050px){.app{grid-template-columns:215px minmax(0,1fr)}.content{padding:21px}.stats{grid-template-columns:repeat(2,minmax(0,1fr))}.maincharts,.lower{grid-template-columns:1fr}.hero{gap:24px}.featuregrid{grid-template-columns:repeat(2,1fr)}}
-@media(max-width:720px){.financing-chart-wrap{height:290px}.financing-holdings .tablewrap,.financing-history .tablewrap{max-height:none}.financing-summary{grid-template-columns:1fr 1fr}.financing-progress-card{grid-column:1/-1}.savings-chart-wrap{height:290px}.savings-holdings .tablewrap{max-height:none}.savings-summary{grid-template-columns:1fr 1fr}.savings-progress-card{grid-column:1/-1}.investment-chart-wrap{height:290px}.investment-holdings .tablewrap{max-height:none}.investment-summary{grid-template-columns:1fr 1fr}.investment-pnl-card{grid-column:1/-1}.account-meta,.password-form{grid-template-columns:1fr}.password-actions{align-items:stretch}.wrap{width:min(100% - 28px,1180px)}.sitehead{height:72px}.site-nav{gap:13px}.site-nav a:not(.btn){display:none}.hero{grid-template-columns:1fr;padding:50px 0 58px;gap:12px}.hero-copy h1{font-size:44px}.hero-copy p{font-size:14px}.hero-art{min-height:350px}.mock{width:min(390px,94%)}.floatnote.one{left:0;top:25px}.floatnote.two{right:0;bottom:10px}.features{padding:28px 0 65px}.featuregrid{grid-template-columns:1fr}.sectiontitle h2{font-size:25px}.sitefoot{font-size:11px}.authpage{grid-template-columns:1fr}.authvisual{display:none}.authpanelwrap{min-height:100vh;padding:22px}.app{grid-template-columns:1fr}.sidebar{position:fixed;z-index:30;top:0;bottom:0;right:0;width:270px;transform:translateX(105%);transition:.25s;box-shadow:none}.sidebar.open{transform:translateX(0);box-shadow:0 0 0 100vmax #0009}.menu-toggle{display:inline-flex}.topbar{height:67px;padding:0 12px}.content{padding:17px 12px}.pagehead h1{font-size:24px}.stats{gap:9px}.card{padding:14px}.statvalue{font-size:19px}.modulegrid{grid-template-columns:repeat(2,minmax(0,1fr))}.topactions{gap:5px}.topactions .btn.primary{padding:9px 10px;font-size:11px}.formgrid{grid-template-columns:1fr}.chartbox{height:245px}}
+@media(max-width:720px){.ai-config-grid{grid-template-columns:1fr}.ai-config-actions .btn{flex:1}.install-pwa-actions .btn{width:100%}.financing-chart-wrap{height:290px}.financing-holdings .tablewrap,.financing-history .tablewrap{max-height:none}.financing-summary{grid-template-columns:1fr 1fr}.financing-progress-card{grid-column:1/-1}.savings-chart-wrap{height:290px}.savings-holdings .tablewrap{max-height:none}.savings-summary{grid-template-columns:1fr 1fr}.savings-progress-card{grid-column:1/-1}.investment-chart-wrap{height:290px}.investment-holdings .tablewrap{max-height:none}.investment-summary{grid-template-columns:1fr 1fr}.investment-pnl-card{grid-column:1/-1}.account-meta,.password-form{grid-template-columns:1fr}.password-actions{align-items:stretch}.wrap{width:min(100% - 28px,1180px)}.sitehead{height:72px}.site-nav{gap:13px}.site-nav a:not(.btn){display:none}.hero{grid-template-columns:1fr;padding:50px 0 58px;gap:12px}.hero-copy h1{font-size:44px}.hero-copy p{font-size:14px}.hero-art{min-height:350px}.mock{width:min(390px,94%)}.floatnote.one{left:0;top:25px}.floatnote.two{right:0;bottom:10px}.features{padding:28px 0 65px}.featuregrid{grid-template-columns:1fr}.sectiontitle h2{font-size:25px}.sitefoot{font-size:11px}.authpage{grid-template-columns:1fr}.authvisual{display:none}.authpanelwrap{min-height:100vh;padding:22px}.app{grid-template-columns:1fr}.sidebar{position:fixed;z-index:30;top:0;bottom:0;right:0;width:270px;transform:translateX(105%);transition:.25s;box-shadow:none}.sidebar.open{transform:translateX(0);box-shadow:0 0 0 100vmax #0009}.menu-toggle{display:inline-flex}.topbar{height:67px;padding:0 12px}.content{padding:17px 12px}.pagehead h1{font-size:24px}.stats{gap:9px}.card{padding:14px}.statvalue{font-size:19px}.modulegrid{grid-template-columns:repeat(2,minmax(0,1fr))}.topactions{gap:5px}.topactions .btn.primary{padding:9px 10px;font-size:11px}.formgrid{grid-template-columns:1fr}.chartbox{height:245px}}
 @media(prefers-reduced-motion:reduce){*,*::before,*::after{scroll-behavior:auto!important;animation-duration:.01ms!important;transition-duration:.01ms!important}}
 </style>
 </head>
@@ -85,7 +92,7 @@ body.light .btn.primary{color:#17140e}
 "use strict";
 const $=s=>document.querySelector(s);
 const root=$("#root");
-let supa=null,user=null,active="dashboard",currency="YER",transactions=[],accounts=[],goals=[],liabilities=[],financings=[],financingPayments=[],investments=[],budgets=[],charts={},fxRates={USD:{USD:1}},fxRateDate=null,fxRateSource=null,goldQuote=null,goldLoading=false,goldError=null,marketQuotes={},investmentQuoteLoading=false,investmentQuoteLoadedAt=0,investmentQuoteError=null;
+let supa=null,user=null,active="dashboard",currency="YER",transactions=[],accounts=[],goals=[],liabilities=[],financings=[],financingPayments=[],investments=[],budgets=[],charts={},fxRates={USD:{USD:1}},fxRateDate=null,fxRateSource=null,goldQuote=null,goldLoading=false,goldError=null,marketQuotes={},investmentQuoteLoading=false,investmentQuoteLoadedAt=0,investmentQuoteError=null,deferredInstallPrompt=null;
 const currencyNames={YER:"ريال يمني",SAR:"ريال سعودي",USD:"دولار أمريكي",AED:"درهم إماراتي"};
 const pageTitles={dashboard:"الرئيسية",transactions:"كل العمليات",income:"الدخل",expenses:"المصروفات",accounts:"الحسابات",savings:"الادخار",financings:"التمويلات والأقساط",investments:"الاستثمارات",budgets:"الميزانيات",reports:"التقارير",assistant:"المساعد الذكي",settings:"الإعدادات"};
 const nav=[["dashboard","▦","الرئيسية"],["transactions","⇄","كل العمليات"],["income","↗","الدخل"],["expenses","↘","المصروفات"],["accounts","▤","الحسابات"],["savings","◎","الادخار"],["financings","◈","التمويلات والأقساط"],["investments","⌁","الاستثمارات"],["budgets","◫","الميزانيات"],["reports","▥","التقارير"],["assistant","✳","المساعد الذكي"],["settings","⚙","الإعدادات"]];
@@ -111,6 +118,9 @@ async function refreshFxRates(){
   if(!rows.length)throw new Error("لم تصل أسعار عملات صالحة من المصدر.");
   const saved=await supa.from("exchange_rates").upsert(rows,{onConflict:"user_id,base_currency,quote_currency,rate_date"});
   if(saved.error)throw saved.error;
+  const marketRows=rows.map(row=>({...row,rate_type:"mid_market",region:"GLOBAL",source_url:"https://frankfurter.dev/",observed_at:new Date().toISOString(),metadata:{rate_basis:"daily_mid_market"}}));
+  const marketSaved=await supa.from("market_fx_snapshots").upsert(marketRows,{onConflict:"user_id,base_currency,quote_currency,rate_date,rate_type,region,source"});
+  if(marketSaved.error)console.warn("Could not persist market FX snapshot:",marketSaved.error.message);
   fxRates={USD:{...fxRates.USD,USD:1}};for(const row of rows)fxRates.USD[row.quote_currency]=Number(row.rate);
   fxRateDate=date;fxRateSource="Frankfurter";
   toast("تم تحديث أسعار الصرف بتاريخ "+date);renderPage();
@@ -126,6 +136,9 @@ async function saveManualFxRates(){
  if(!rows.length){toast("أدخل سعرًا صحيحًا لعملة واحدة على الأقل.");return;}
  const result=await supa.from("exchange_rates").upsert(rows,{onConflict:"user_id,base_currency,quote_currency,rate_date"});
  if(result.error){toast("تعذر حفظ أسعار الصرف: "+result.error.message);return;}
+ const snapshots=rows.map(row=>({...row,rate_type:"manual",region:row.quote_currency==="YER"?"YEMEN":"USER",source_url:null,observed_at:new Date().toISOString(),metadata:{user_entered:true}}));
+ const marketSaved=await supa.from("market_fx_snapshots").upsert(snapshots,{onConflict:"user_id,base_currency,quote_currency,rate_date,rate_type,region,source"});
+ if(marketSaved.error)console.warn("Could not persist manual FX snapshot:",marketSaved.error.message);
  for(const row of rows)fxRates.USD[row.quote_currency]=Number(row.rate);
  fxRateDate=today;fxRateSource="Manual override";
  toast("تم حفظ أسعار الصرف اليدوية بتاريخ "+today);renderPage();
@@ -134,7 +147,13 @@ async function fetchGoldQuote(){
  const response=await fetch("/api/market/gold",{cache:"no-store"});
  const data=await response.json();if(!response.ok)throw new Error(data.detail||"تعذر جلب سعر الذهب");
  if(!(Number(data.price_usd_troy_ounce)>0))throw new Error("سعر الذهب غير صالح.");
- goldQuote=data;goldError=null;return data;
+ goldQuote=data;goldError=null;
+ if(supa&&user?.id){
+  const snapshot={user_id:user.id,symbol:"XAU",price_usd_troy_ounce:Number(data.price_usd_troy_ounce),currency:"USD",source:data.source||"Gold API",source_url:data.source_url||null,observed_at:data.updated_at,metadata:{name:data.name||"Gold",troy_ounce_grams:data.troy_ounce_grams||31.1034768}};
+  const saved=await supa.from("gold_price_snapshots").upsert(snapshot,{onConflict:"user_id,symbol,source,observed_at"});
+  if(saved.error)console.warn("Could not persist gold snapshot:",saved.error.message);
+ }
+ return data;
 }
 function goldGramPrice(karat=24,target=currency){
  if(!goldQuote)return null;
@@ -154,7 +173,13 @@ async function fetchInvestmentQuote(type,symbol){
  if(!response.ok)throw new Error(data.detail||"تعذر جلب سعر السوق.");
  const price=Number(data.price_usd??data.price);
  if(!(price>0)||!data.updated_at)throw new Error("بيانات السعر لا تحتوي قيمة ووقت تحديث صالحين.");
- const quote={...data,price,currency:data.currency||"USD"};marketQuotes[key]=quote;return quote;
+ const quote={...data,price,currency:data.currency||"USD"};marketQuotes[key]=quote;
+ if(supa&&user?.id){
+  const snapshot={user_id:user.id,asset_class:kind,symbol:String(data.symbol||symbol).toUpperCase(),name:data.name||symbol,price,currency:quote.currency,unit:data.unit||null,source:data.source||"Market provider",source_url:data.source_url||null,observed_at:data.updated_at,market_state:data.market_state||null,metadata:{kind,query_symbol:symbol}};
+  const saved=await supa.from("market_asset_quotes").upsert(snapshot,{onConflict:"user_id,asset_class,symbol,source,observed_at"});
+  if(saved.error)console.warn("Could not persist market asset quote:",saved.error.message);
+ }
+ return quote;
 }
 function investmentQuantity(item){const m=item.metadata||{};return Number(m.quantity??m.weight_grams)||0;}
 function investmentUnitLabel(type){return ({gold:"غرام",silver:"غرام",copper:"رطل",crypto:"عملة",saudi_stock:"سهم",global_stock:"سهم"}[type]||"وحدة");}
@@ -470,13 +495,13 @@ function renderPage(){
   html+='<div class="grid stats">'+stat("دخل السنة",money(sum("income",true)),currency,"positive")+stat("مصروفات السنة",money(sum("expense",true)),currency,"negative")+stat("صافي السنة",money(sum("income",true)-sum("expense",true)),currency,"") +stat("أهداف الادخار",goals.length,"أهداف مسجلة","")+'</div><div class="card"><div class="cardhead"><h2>التدفق السنوي</h2><span class="tiny">لا تُجمع العملات المختلفة</span></div><div class="chartbox"><canvas id="reportChart"></canvas></div></div>';
  }else if(active==="assistant"){
   html=pageHeader("وكيلك المالي لتحليل عملياتك وحساباتك ومحفظة الذهب. لا ينفذ معاملات مالية.");
-  html+='<div class="card chatbox"><div class="cardhead"><div><h2>WALLET OS Agent</h2><span id="agentStatus" class="tiny">جارٍ فحص اتصال Ollama…</span></div><button class="btn small" id="checkAgent">فحص الاتصال</button></div><div class="messages" id="messages"><div class="msg bot">مرحبًا. أرسل سؤالك عن الدخل والمصروفات والميزانيات والاستثمارات. عند اتصال Ollama سيجيب النموذج من البيانات التي اخترت عرضها في هذه الجلسة. إذا لم يكن متصلًا ستظهر لك حالة ذلك بوضوح.</div></div><div class="chatrow"><input class="field" id="chatInput" placeholder="اسأل وكيلك المالي…"><button class="btn primary" id="sendChat">إرسال</button></div><div class="tiny">يُرسل إلى الخادم ملخص مالي محدود بعد تسجيل دخولك؛ لا تُرسل مفاتيح أو معرفات الحسابات إلى النموذج. لتفعيل Ollama Cloud أضف OLLAMA_API_KEY كمتغير Sensitive في Vercel؛ لا تلصق المفتاح في GitHub أو المحادثة.</div></div>';
+  html+='<div class="card chatbox"><div class="cardhead"><div><h2>WALLET OS Agent</h2><span id="agentStatus" class="tiny">جارٍ فحص اتصال Ollama…</span></div><button class="btn small" id="checkAgent">فحص الاتصال</button></div><div class="messages" id="messages"><div class="msg bot">مرحبًا. أرسل سؤالك عن الدخل والمصروفات والميزانيات والاستثمارات. عند اتصال Ollama سيجيب النموذج من البيانات التي اخترت عرضها في هذه الجلسة. إذا لم يكن متصلًا ستظهر لك حالة ذلك بوضوح.</div></div><div class="chatrow"><input class="field" id="chatInput" placeholder="اسأل وكيلك المالي…"><button class="btn primary" id="sendChat">إرسال</button></div><div class="tiny">يُرسل إلى الخادم ملخص مالي محدود بعد تسجيل دخولك؛ لا تُرسل مفاتيح أو معرفات الحسابات إلى النموذج. اضبط مزود الذكاء الاصطناعي ومفتاحه من صفحة الإعدادات.</div></div>';
  }else{
   html=pageHeader("إدارة حسابك وتفضيلات العرض وأسعار الصرف المرجعية.");
   const accountName=esc(user.user_metadata?.full_name||user.user_metadata?.name||"مستخدم WALLET OS");
   const accountCreated=user.created_at?new Date(user.created_at).toLocaleDateString("ar-YE",{year:"numeric",month:"long",day:"numeric"}):"غير متوفر";
   html+='<div class="card account-settings"><div class="cardhead"><div><h2>معلومات المستخدم</h2><p class="tiny">بيانات حسابك وإعدادات الأمان</p></div><button class="btn small" id="settingsLogout" type="button" title="تسجيل الخروج">↪ تسجيل الخروج</button></div><div class="account-meta"><div><span>اسم المستخدم</span><strong>'+accountName+'</strong></div><div><span>البريد الإلكتروني</span><strong>'+esc(user.email||"غير متوفر")+'</strong></div><div><span>تاريخ إنشاء الحساب</span><strong>'+esc(accountCreated)+'</strong></div></div><div class="account-password"><h3>تغيير كلمة المرور</h3><p class="tiny">أدخل كلمة المرور الحالية ثم اختر كلمة مرور جديدة. يجب ألا تقل كلمة المرور الجديدة عن 8 أحرف.</p><form id="passwordForm"><div class="password-form"><label class="fieldlabel">كلمة المرور الحالية<input class="field" id="currentPassword" type="password" autocomplete="current-password" required></label><label class="fieldlabel">كلمة المرور الجديدة<input class="field" id="newPassword" type="password" autocomplete="new-password" minlength="8" required></label><label class="fieldlabel">تأكيد كلمة المرور الجديدة<input class="field" id="confirmPassword" type="password" autocomplete="new-password" minlength="8" required></label></div><div class="password-actions"><button class="btn primary" type="submit" id="changePassword">حفظ كلمة المرور الجديدة</button><span class="tiny">يُحدّث Supabase كلمة مرور هذا الحساب بعد التحقق من البيانات.</span></div></form></div></div>';
-  html+='<div class="grid lower"><div class="card"><h2>عملة العرض</h2><p class="muted" style="font-size:12px;line-height:1.9">تُحفظ كل عملية بعملتها الأصلية. عند توفر سعر صرف بتاريخ ومصدر، تتحول الإجماليات للعرض دون تعديل أصل العملية.</p><label class="fieldlabel">العملة المفضلة<select class="field" id="profileCurrency">'+currencyOptions(currency)+'</select></label><button class="btn primary" id="savePrefs">حفظ التفضيلات</button><div style="height:22px"></div><h2>الوكيل الذكي · Ollama Cloud</h2><p class="muted" style="font-size:12px;line-height:1.9">عنوان الخدمة والنموذج مهيآن على Vercel، ومفتاح API محفوظ كمتغير Sensitive. فحص الاتصال يتحقق من المفتاح ووجود النموذج فقط، ولا يتحقق من حصة الاستخدام أو حدود الخطة.</p><a class="btn small" href="https://ollama.com/settings" target="_blank" rel="noopener">إدارة الاستخدام والخطة</a> <a class="linkbtn" href="https://ollama.com/settings/keys" target="_blank" rel="noopener">إدارة مفاتيح API</a><p class="tiny" style="line-height:1.8;margin-top:12px">الخطة بلا اشتراك شهري، لكن استخدام نماذج السحابة يُحاسب بحسب الرموز؛ راجع الأسعار والحدود في حساب Ollama قبل إرسال الطلبات.</p><a class="linkbtn" href="https://ollama.com/pricing" target="_blank" rel="noopener">عرض أسعار Ollama</a></div><div class="card"><div class="cardhead"><div><h2>أسعار الصرف</h2><p class="tiny">أسعار مرجعية للعملات العالمية مقابل الدولار</p></div><button class="btn small" id="refreshFx">تحديث الأسعار المرجعية</button></div><div class="tablewrap"><table><thead><tr><th>العملة</th><th>سعر 1 USD</th></tr></thead><tbody>'+[["YER","ريال يمني"],["SAR","ريال سعودي"],["AED","درهم إماراتي"],["EUR","يورو"]].map(([code,name])=>'<tr><td>'+name+' <span class="pill">'+code+'</span></td><td><input class="field" id="fx_'+code+'" type="number" min="0.00000001" step="any" value="'+(fxRates.USD?.[code]||"")+'" placeholder="اضغط تحديث أو أدخل السعر"></td></tr>').join("")+'</tbody></table></div><div class="tiny" style="margin:12px 0">المصدر: '+esc(fxRateSource||"لم يتم التحديث")+' · تاريخ السعر: '+esc(fxRateDate||"لا يوجد سعر محفوظ")+'</div><button class="btn primary" id="saveManualFx">حفظ الأسعار اليدوية</button><p class="tiny" style="line-height:1.8;margin-top:12px">Frankfurter يقدم أسعارًا مرجعية يومية (Mid-market)، وليست أسعارًا نقدية محلية أو أسعار تنفيذ لدى الصرافين.</p></div></div>';
+  html+='<div class="grid lower"><div class="card"><h2>عملة العرض</h2><p class="muted" style="font-size:12px;line-height:1.9">تُحفظ كل عملية بعملتها الأصلية. عند توفر سعر صرف بتاريخ ومصدر، تتحول الإجماليات للعرض دون تعديل أصل العملية.</p><label class="fieldlabel">العملة المفضلة<select class="field" id="profileCurrency">'+currencyOptions(currency)+'</select></label><button class="btn primary" id="savePrefs">حفظ التفضيلات</button><div style="height:22px"></div><h2>إعداد الذكاء الاصطناعي</h2><p class="muted" style="font-size:12px;line-height:1.9">اختر مزود النموذج وأدخل اسم النموذج ومفتاح API. يمكن استخدام Ollama Cloud أو OpenAI أو OpenRouter أو Groq أو أي واجهة متوافقة مع OpenAI.</p><div class="ai-config-grid"><label class="fieldlabel">مزود الذكاء الاصطناعي<select class="field" id="aiProvider"><option value="ollama_cloud">Ollama Cloud</option><option value="openai">OpenAI</option><option value="openrouter">OpenRouter</option><option value="groq">Groq</option><option value="custom">مزود مخصص متوافق مع OpenAI</option></select></label><label class="fieldlabel">اسم النموذج<input class="field" id="aiModel" maxlength="160" placeholder="gpt-oss:20b" required></label><label class="fieldlabel">عنوان API المخصص<input class="field" id="aiBaseUrl" type="url" placeholder="https://api.example.com/v1"></label><label class="fieldlabel">مفتاح API<input class="field" id="aiApiKey" type="password" autocomplete="new-password" placeholder="أدخل المفتاح لحفظه أو تغييره"></label></div><div class="ai-config-actions"><button class="btn primary" id="saveAiConfig" type="button">حفظ إعدادات ومفتاح API</button><button class="btn" id="testAiConfig" type="button">اختبار الاتصال</button></div><div class="ai-config-status tiny" id="aiConfigStatus">جارٍ تحميل إعدادات المساعد…</div><p class="tiny" style="line-height:1.8;margin-top:10px">يُحفظ المفتاح مشفرًا في Supabase Vault ويرتبط بحسابك فقط. لا يظهر المفتاح بعد الحفظ ولا يُخزّن في المتصفح أو GitHub. يتصل الخادم بالمزوّد نيابة عنك؛ قد تُحتسب تكلفة استخدام حسب مزود النموذج.</p><div class="install-pwa-card"><h2>تثبيت WALLET OS على الهاتف</h2><p class="tiny">يمكن تثبيت المنصة كتطبيق ويب تقدمي PWA على Android أو iPhone وإضافتها إلى الشاشة الرئيسية.</p><div class="install-pwa-actions"><button class="btn small" id="installPwa" type="button">تثبيت التطبيق</button><span id="installPwaStatus" class="tiny">يتطلب اتصالًا أوليًا بالإنترنت.</span></div></div></div><div class="card"><div class="cardhead"><div><h2>أسعار الصرف</h2><p class="tiny">أسعار مرجعية للعملات العالمية مقابل الدولار</p></div><button class="btn small" id="refreshFx">تحديث الأسعار المرجعية</button></div><div class="tablewrap"><table><thead><tr><th>العملة</th><th>سعر 1 USD</th></tr></thead><tbody>'+[["YER","ريال يمني"],["SAR","ريال سعودي"],["AED","درهم إماراتي"],["EUR","يورو"]].map(([code,name])=>'<tr><td>'+name+' <span class="pill">'+code+'</span></td><td><input class="field" id="fx_'+code+'" type="number" min="0.00000001" step="any" value="'+(fxRates.USD?.[code]||"")+'" placeholder="اضغط تحديث أو أدخل السعر"></td></tr>').join("")+'</tbody></table></div><div class="tiny" style="margin:12px 0">المصدر: '+esc(fxRateSource||"لم يتم التحديث")+' · تاريخ السعر: '+esc(fxRateDate||"لا يوجد سعر محفوظ")+'</div><button class="btn primary" id="saveManualFx">حفظ الأسعار اليدوية</button><p class="tiny" style="line-height:1.8;margin-top:12px">Frankfurter يقدم أسعارًا مرجعية يومية (Mid-market)، وليست أسعارًا نقدية محلية أو أسعار تنفيذ لدى الصرافين.</p></div></div>';
  }
  page.innerHTML=html;
  if($("#addAccount"))$("#addAccount").onclick=()=>openRecord("accounts");
@@ -493,6 +518,10 @@ function renderPage(){
   document.querySelectorAll("[data-delete-payment]").forEach(el=>el.onclick=()=>deleteFinancingPayment(el.dataset.deletePayment));
  if($("#sendChat")){$("#sendChat").onclick=sendChat;$("#chatInput").onkeydown=e=>{if(e.key==="Enter")sendChat();};checkAgentStatus();}
  if($("#checkAgent"))$("#checkAgent").onclick=checkAgentStatus;
+ if($("#saveAiConfig"))$("#saveAiConfig").onclick=saveAiConfig;
+ if($("#testAiConfig"))$("#testAiConfig").onclick=testAiConfig;
+ if(active==="settings"&&$("#aiProvider"))loadAiConfig();
+ if($("#installPwa"))$("#installPwa").onclick=installWalletPWA;
  if($("#savePrefs"))$("#savePrefs").onclick=async()=>{const v=$("#profileCurrency").value;const r=await supa.from("profiles").upsert({id:user.id,base_currency:v});if(r.error)toast(r.error.message);else{currency=v;toast("تم حفظ التفضيل");renderPage();}};
  if($("#refreshFx"))$("#refreshFx").onclick=refreshFxRates;
  if($("#saveManualFx"))$("#saveManualFx").onclick=saveManualFxRates;
@@ -671,14 +700,73 @@ async function deleteRecord(kind,id){
  renderPage();toast("تم الحذف من قاعدة البيانات.");
 }
 function closeModal(){const m=$("#modal");if(m)m.classList.add("hidden");}
-async function checkAgentStatus(){
- const badge=$("#agentStatus");if(badge)badge.textContent="جارٍ فحص اتصال Ollama…";
+async function currentAccessToken(){
+ const session=(await supa.auth.getSession()).data.session;
+ if(!session?.access_token)throw new Error("انتهت جلسة الدخول. سجّل الدخول مجددًا.");
+ return session.access_token;
+}
+async function loadAiConfig(){
+ const status=$("#aiConfigStatus");if(status)status.textContent="جارٍ تحميل إعدادات مزود الذكاء الاصطناعي…";
  try{
-  const response=await fetch("/api/health",{cache:"no-store"}),data=await response.json();
-  const ready=Boolean(response.ok&&data.ollama_reachable&&data.model_available);
-  if(badge){badge.textContent=ready?"الخادم متصل والنموذج موجود · فحص حصة الاستخدام عند إرسال الرسائل · "+(data.model||"Ollama"):data.ollama_reachable?"خادم Ollama يعمل لكن النموذج "+(data.model||"المحدد")+" غير موجود عليه":"غير متصل · أضف OLLAMA_API_KEY في Vercel لتفعيل Ollama Cloud";badge.style.color=ready?"#27834a":"#b46a32";}
+  const token=await currentAccessToken();
+  const response=await fetch("/api/ai/config",{headers:{Authorization:"Bearer "+token},cache:"no-store"});
+  const data=await response.json();if(!response.ok)throw new Error(data.detail||"تعذر تحميل الإعدادات.");
+  if($("#aiProvider"))$("#aiProvider").value=data.provider||data.default_provider||"ollama_cloud";
+  if($("#aiModel"))$("#aiModel").value=data.model||data.default_model||"gpt-oss:20b";
+  if($("#aiBaseUrl"))$("#aiBaseUrl").value=data.base_url||"";
+  if(status)status.textContent=data.has_key?"يوجد مفتاح محفوظ لهذا الحساب داخل Supabase Vault. اترك حقل المفتاح فارغًا للإبقاء عليه، أو أدخل مفتاحًا جديدًا لتغييره.":data.fallback_available?"لا يوجد مفتاح شخصي محفوظ بعد؛ يوجد إعداد خادمي احتياطي لمزود Ollama. يمكنك حفظ مفتاحك الشخصي هنا.":"لم يتم حفظ مفتاح لهذا الحساب بعد. أدخل مفتاح API ثم احفظه.";
+ }catch(error){if(status)status.textContent="تعذر تحميل إعدادات الذكاء الاصطناعي: "+error.message;}
+}
+async function saveAiConfig(){
+ const button=$("#saveAiConfig"),status=$("#aiConfigStatus");
+ const payload={provider:$("#aiProvider")?.value||"ollama_cloud",model:$("#aiModel")?.value.trim()||"",base_url:$("#aiBaseUrl")?.value.trim()||null,api_key:$("#aiApiKey")?.value.trim()||null};
+ if(!payload.model){toast("أدخل اسم النموذج أولًا.");return;}
+ if(payload.provider==="custom"&&!payload.base_url){toast("أدخل عنوان API المخصص باستخدام HTTPS.");return;}
+ if(button){button.disabled=true;button.textContent="جارٍ الحفظ…";}
+ try{
+  const token=await currentAccessToken();
+  const response=await fetch("/api/ai/config",{method:"POST",headers:{"Content-Type":"application/json",Authorization:"Bearer "+token},body:JSON.stringify(payload)});
+  const data=await response.json();if(!response.ok)throw new Error(data.detail||"تعذر حفظ إعدادات المساعد.");
+  if($("#aiApiKey"))$("#aiApiKey").value="";
+  if(status)status.textContent="تم حفظ الإعدادات والمفتاح في Supabase Vault. لم يعد المفتاح ظاهرًا في هذه الصفحة.";
+  toast("تم حفظ إعدادات الذكاء الاصطناعي بأمان.");
+  await loadAiConfig();
+ }catch(error){if(status)status.textContent="تعذر الحفظ: "+error.message;toast("تعذر حفظ إعدادات الذكاء الاصطناعي: "+error.message);}
+ finally{if(button){button.disabled=false;button.textContent="حفظ إعدادات ومفتاح API";}}
+}
+async function testAiConfig(){
+ const button=$("#testAiConfig"),status=$("#aiConfigStatus");
+ if(button){button.disabled=true;button.textContent="جارٍ الاختبار…";}
+ try{
+  const token=await currentAccessToken();
+  const response=await fetch("/api/ai/test",{method:"POST",headers:{Authorization:"Bearer "+token}});
+  const data=await response.json();if(!response.ok)throw new Error(data.detail||"فشل اختبار الاتصال.");
+  const good=data.ok&&data.model_available!==false;
+  if(status)status.textContent=data.message||(good?"الاتصال جاهز والنموذج متاح.":"تم الوصول إلى المزود لكن النموذج المحدد غير متاح.");
+  toast(good?"اتصال الذكاء الاصطناعي ناجح.":"تم الوصول إلى المزود؛ تحقق من النموذج المحدد.");
+  return good;
+ }catch(error){if(status)status.textContent="فشل اختبار الاتصال: "+error.message;toast("فشل اتصال الذكاء الاصطناعي: "+error.message);return false;}
+ finally{if(button){button.disabled=false;button.textContent="اختبار الاتصال";}}
+}
+async function installWalletPWA(){
+ const status=$("#installPwaStatus");
+ if(deferredInstallPrompt){
+  try{deferredInstallPrompt.prompt();const choice=await deferredInstallPrompt.userChoice;deferredInstallPrompt=null;if(status)status.textContent=choice?.outcome==="accepted"?"تم قبول تثبيت التطبيق.":"يمكنك التثبيت لاحقًا من قائمة المتصفح.";}
+  catch(error){if(status)status.textContent="تعذر فتح نافذة التثبيت. استخدم قائمة المتصفح ثم إضافة إلى الشاشة الرئيسية.";}
+ }else if(status){
+  status.textContent=/iphone|ipad|ipod/i.test(navigator.userAgent)?"على iPhone: افتح قائمة المشاركة ثم اختر Add to Home Screen.":"على Android: افتح قائمة المتصفح واختر تثبيت التطبيق أو إضافة إلى الشاشة الرئيسية.";
+ }
+}
+async function checkAgentStatus(){
+ const badge=$("#agentStatus");if(badge)badge.textContent="جارٍ اختبار اتصال مزود الذكاء الاصطناعي…";
+ try{
+  const token=await currentAccessToken();
+  const response=await fetch("/api/ai/test",{method:"POST",headers:{Authorization:"Bearer "+token}});
+  const data=await response.json();
+  const ready=Boolean(response.ok&&data.ok&&data.model_available!==false);
+  if(badge){badge.textContent=ready?"المساعد متصل · "+(data.model||"النموذج جاهز"):data.message||data.detail||"المساعد غير متصل. راجع إعدادات API.";badge.style.color=ready?"#27834a":"#b46a32";}
   return ready;
- }catch(error){if(badge){badge.textContent="تعذر فحص خدمة Ollama";badge.style.color="#b46a32";}return false;}
+ }catch(error){if(badge){badge.textContent="تعذر اختبار المساعد: "+error.message;badge.style.color="#b46a32";}return false;}
 }
 async function sendChat(){
  const input=$("#chatInput"),q=input?.value.trim();if(!q)return;
@@ -690,12 +778,13 @@ async function sendChat(){
   const r=await fetch("/api/chat",{method:"POST",headers:{"Content-Type":"application/json","Authorization":"Bearer "+session.access_token},body:JSON.stringify({message:q,context,language:"ar"})});
   const data=await r.json();if(!r.ok)throw new Error(data.detail||"خدمة المساعد غير متاحة");answer=data.content;
  }catch(e){
-  if(/مصروف|انفاق|إنفاق/.test(q))answer="إجمالي المصروفات المسجلة بالعملة "+currency+" هو "+money(sum("expense"))+". هذا حساب مباشر من السجل ولا يتضمن العملات الأخرى.";
-  else if(/دخل/.test(q))answer="إجمالي الدخل المسجل هو "+money(sum("income"))+"، وإجمالي المصروفات "+money(sum("expense"))+".";
-  else answer="تعذر الاتصال بنموذج Ollama حاليًا. "+e.message+" يمكنك متابعة السجل والرسوم دون المساعد.";
+  answer="تعذر الاتصال بالمساعد الذكي: "+e.message+" لم يتم إنشاء إجابة بديلة أو اختلاق نتيجة.";
  }
  box.insertAdjacentHTML("beforeend",'<div class="msg bot">'+esc(answer)+'</div>');box.scrollTop=box.scrollHeight;
 }
+window.addEventListener("beforeinstallprompt",event=>{event.preventDefault();deferredInstallPrompt=event;});
+window.addEventListener("appinstalled",()=>{deferredInstallPrompt=null;toast("تم تثبيت WALLET OS على جهازك.");});
+if("serviceWorker" in navigator){window.addEventListener("load",()=>navigator.serviceWorker.register("/sw.js").catch(error=>console.warn("PWA service worker:",error)));}
 async function init(){
  const cfg=window.WALLET_CONFIG||{};
  if(cfg.supabaseUrl&&cfg.supabaseAnonKey){
